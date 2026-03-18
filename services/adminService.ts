@@ -3,17 +3,67 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
 import type { MetodoVotacion, Participante, Seccion, Votacion } from '../types';
 import { db } from './firebaseConfig';
 
-// ==================== GESTIÓN DE ROLES ====================
+// ==================== CONFIGURACIÓN GLOBAL DEL EVENTO ====================
+
+export const obtenerEstadoEvento = async (): Promise<boolean> => {
+  try {
+    const configRef = doc(db, 'configuracion', 'evento');
+    const configSnap = await getDoc(configRef);
+    
+    if (configSnap.exists()) {
+      return configSnap.data().votacionesPausadas ?? false;
+    } else {
+      // Si es la primera vez y no existe, lo creamos abierto (false)
+      await setDoc(configRef, { votacionesPausadas: false });
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Error al obtener estado del evento:', error);
+    return false;
+  }
+};
+
+export const togglePausaEvento = async (pausado: boolean): Promise<boolean> => {
+  try {
+    const configRef = doc(db, 'configuracion', 'evento');
+    await updateDoc(configRef, { votacionesPausadas: pausado });
+    console.log(`✅ Evento ${pausado ? 'PAUSADO' : 'ABIERTO'}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al pausar evento:', error);
+    return false;
+  }
+};
+
+// ==================== GESTIÓN DE USUARIOS Y ROLES ====================
+
+export const obtenerTodosLosUsuarios = async () => {
+  try {
+    const usuariosRef = collection(db, 'usuarios');
+    const q = query(usuariosRef, orderBy('fecha_registro', 'desc'));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('❌ Error al obtener usuarios:', error);
+    return [];
+  }
+};
 
 export const hacerAdmin = async (uid: string): Promise<boolean> => {
   try {
@@ -96,7 +146,6 @@ export const obtenerSecciones = async (): Promise<Seccion[]> => {
 export const obtenerSeccionesActivas = async (): Promise<Seccion[]> => {
   try {
     const seccionesRef = collection(db, 'secciones');
-    // Filtramos activa en cliente para evitar necesitar índice compuesto en Firestore
     const q = query(seccionesRef, orderBy('orden', 'asc'));
     const snapshot = await getDocs(q);
 
@@ -126,7 +175,7 @@ export const actualizarSeccion = async (
 ): Promise<boolean> => {
   try {
     const seccionRef = doc(db, 'secciones', seccionId);
-    await updateDoc(seccionRef, params);
+    await updateDoc(seccionRef, params as any);
     console.log(`✅ Sección ${seccionId} actualizada`);
     return true;
   } catch (error) {
@@ -215,6 +264,32 @@ export const obtenerVotacionesPorSeccion = async (seccionId: string): Promise<Vo
   }
 };
 
+export const obtenerTodasLasVotaciones = async (): Promise<Votacion[]> => {
+  try {
+    const votacionesRef = collection(db, 'votaciones');
+    const q = query(votacionesRef, orderBy('fechaCreacion', 'desc'));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        seccionId: data.seccionId,
+        titulo: data.titulo,
+        descripcion: data.descripcion || undefined,
+        metodoVotacion: data.metodoVotacion,
+        maxOpciones: data.maxOpciones || undefined,
+        estado: data.estado,
+        fechaCreacion: data.fechaCreacion?.toDate() || new Date(),
+        fechaCierre: data.fechaCierre?.toDate() || undefined,
+      } as Votacion;
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener todas las votaciones:', error);
+    return [];
+  }
+};
+
 export const actualizarEstadoVotacion = async (
   votacionId: string,
   estado: 'abierta' | 'cerrada'
@@ -250,34 +325,6 @@ export const eliminarVotacion = async (votacionId: string): Promise<boolean> => 
   } catch (error) {
     console.error('❌ Error al eliminar votación:', error);
     return false;
-  }
-};
-
-
-// Añade esto al final de services/adminService.ts
-export const obtenerTodasLasVotaciones = async (): Promise<Votacion[]> => {
-  try {
-    const votacionesRef = collection(db, 'votaciones');
-    const q = query(votacionesRef, orderBy('fechaCreacion', 'desc'));
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        seccionId: data.seccionId,
-        titulo: data.titulo,
-        descripcion: data.descripcion || undefined,
-        metodoVotacion: data.metodoVotacion,
-        maxOpciones: data.maxOpciones || undefined,
-        estado: data.estado,
-        fechaCreacion: data.fechaCreacion?.toDate() || new Date(),
-        fechaCierre: data.fechaCierre?.toDate() || undefined,
-      } as Votacion;
-    });
-  } catch (error) {
-    console.error('❌ Error al obtener todas las votaciones:', error);
-    return [];
   }
 };
 
