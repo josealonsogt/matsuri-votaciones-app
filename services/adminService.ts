@@ -253,6 +253,34 @@ export const eliminarVotacion = async (votacionId: string): Promise<boolean> => 
   }
 };
 
+
+// Añade esto al final de services/adminService.ts
+export const obtenerTodasLasVotaciones = async (): Promise<Votacion[]> => {
+  try {
+    const votacionesRef = collection(db, 'votaciones');
+    const q = query(votacionesRef, orderBy('fechaCreacion', 'desc'));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        seccionId: data.seccionId,
+        titulo: data.titulo,
+        descripcion: data.descripcion || undefined,
+        metodoVotacion: data.metodoVotacion,
+        maxOpciones: data.maxOpciones || undefined,
+        estado: data.estado,
+        fechaCreacion: data.fechaCreacion?.toDate() || new Date(),
+        fechaCierre: data.fechaCierre?.toDate() || undefined,
+      } as Votacion;
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener todas las votaciones:', error);
+    return [];
+  }
+};
+
 // ==================== GESTIÓN DE PARTICIPANTES ====================
 
 interface AgregarParticipanteParams {
