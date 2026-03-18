@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Alert, // Lo mantenemos solo para confirmaciones de borrado
   Modal,
   ScrollView,
   StyleSheet,
@@ -12,7 +12,9 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext'; // 👈 Importamos los Toasts
 import {
+  actualizarSeccion,
   crearSeccion,
   eliminarSeccion,
   obtenerSecciones,
@@ -22,11 +24,14 @@ import type { Seccion } from '../../types';
 export default function AdminSeccionesScreen() {
   const router = useRouter();
   const { usuario } = useAuth();
-
+  const { showToast } = useToast(); // 👈 Activamos la magia de los Toasts
+  const [eventoPausado, setEventoPausado] = useState(false);
   const [secciones, setSecciones] = useState<Seccion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Estados del formulario
+  const [seccionEditando, setSeccionEditando] = useState<string | null>(null); // Saber si estamos creando o editando
   const [nombreSeccion, setNombreSeccion] = useState('');
   const [iconoSeccion, setIconoSeccion] = useState('');
   const [descripcionSeccion, setDescripcionSeccion] = useState('');
@@ -44,34 +49,81 @@ export default function AdminSeccionesScreen() {
     setCargando(false);
   };
 
-  const handleCrearSeccion = async () => {
+  // 📝 LÓGICA PARA ABRIR MODAL EN MODO EDICIÓN
+  const abrirModalEditar = (sec: Seccion) => {
+    setSeccionEditando(sec.id);
+    setNombreSeccion(sec.nombre);
+    setIconoSeccion(sec.icono || '');
+    setDescripcionSeccion(sec.descripcion || '');
+    setOrdenSeccion(sec.orden.toString());
+    setModalVisible(true);
+  };
+
+  const limpiarFormulario = () => {
+    setNombreSeccion('');
+    setIconoSeccion('');
+    setDescripcionSeccion('');
+    setOrdenSeccion('0');
+    setSeccionEditando(null); // Reseteamos el modo edición
+  };
+
+  const abrirModalCrear = () => {
+    limpiarFormulario();
+    setModalVisible(true);
+  };
+
+  const cargarSecciones = async () => {
+    setCargando(true);
+    const data = await obtenerSecciones();
+    setSecciones(data);
+    
+    // 👇 AÑADE ESTO:
+    import { obtenerEstadoEvento, togglePausaEvento } from '../../services/adminService'; // (Asegúrate de importar esto arriba)
+    const estadoPausa = await obtenerEstadoEvento();
+    setEventoPausado(estadoPausa);
+    // 👆 HASTA AQUÍ
+    
+    setCargando(false);
+  };
+
+  // 💾 FUNCIÓN UNIFICADA (Guarda si es nueva, o Edita si ya existía)
+  const handleGuardarSeccion = async () => {
     if (!nombreSeccion.trim()) {
-      return Alert.alert('Error', 'El nombre de la sección es obligatorio');
+      return showToast('El nombre de la sección es obligatorio', 'error'); // Usamos Toast
     }
 
     setGuardando(true);
-    const exito = await crearSeccion({
+    let exito = false;
+
+    const datosFormulario = {
       nombre: nombreSeccion.trim(),
       icono: iconoSeccion.trim() || undefined,
       descripcion: descripcionSeccion.trim() || undefined,
       orden: parseInt(ordenSeccion) || 0,
-    });
+    };
+
+    if (seccionEditando) {
+      exito = await actualizarSeccion(seccionEditando, datosFormulario);
+    } else {
+      exito = await crearSeccion(datosFormulario);
+    }
+    
     setGuardando(false);
 
     if (exito) {
-      Alert.alert('✅ Éxito', 'Sección creada correctamente');
+      showToast(seccionEditando ? '✅ Sección actualizada' : '✅ Sección creada', 'success');
       setModalVisible(false);
       limpiarFormulario();
       cargarSecciones();
     } else {
-      Alert.alert('❌ Error', 'No se pudo crear la sección');
+      showToast('❌ Hubo un error al guardar', 'error');
     }
   };
 
   const handleEliminarSeccion = (id: string, nombre: string) => {
     Alert.alert(
       '⚠️ Confirmar Eliminación',
-      `¿Estás seguro de eliminar "${nombre}"? Esto eliminará todas sus votaciones y participantes.`,
+      `¿Estás seguro de eliminar "${nombre}"? Esto eliminará todas sus votaciones.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -80,22 +132,15 @@ export default function AdminSeccionesScreen() {
           onPress: async () => {
             const exito = await eliminarSeccion(id);
             if (exito) {
-              Alert.alert('✅ Eliminado', 'Sección eliminada correctamente');
+              showToast('🗑️ Sección eliminada correctamente', 'success'); // Usamos Toast
               cargarSecciones();
             } else {
-              Alert.alert('❌ Error', 'No se pudo eliminar la sección');
+              showToast('❌ Error al eliminar la sección', 'error');
             }
           },
         },
       ]
     );
-  };
-
-  const limpiarFormulario = () => {
-    setNombreSeccion('');
-    setIconoSeccion('');
-    setDescripcionSeccion('');
-    setOrdenSeccion('0');
   };
 
   const iconosSugeridos = ['🎮', '🎵', '🎭', '🎲', '🎨', '🚗', '👗', '📚', '🎪', '🏆'];
@@ -120,7 +165,7 @@ export default function AdminSeccionesScreen() {
         <View style={styles.seccion}>
           <View style={styles.headerSeccion}>
             <Text style={styles.tituloSeccion}>Secciones del Evento</Text>
-            <TouchableOpacity style={styles.btnNuevo} onPress={() => setModalVisible(true)}>
+            <TouchableOpacity style={styles.btnNuevo} onPress={abrirModalCrear}>
               <Text style={styles.btnNuevoTexto}>+ Nueva Sección</Text>
             </TouchableOpacity>
           </View>
@@ -152,18 +197,28 @@ export default function AdminSeccionesScreen() {
                     </View>
                   </View>
                 </View>
+                
+                {/* 🛠️ AHORA TENEMOS 3 BOTONES */}
                 <View style={styles.accionesSeccion}>
                   <TouchableOpacity
                     style={styles.btnAccion}
                     onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
                   >
-                    <Text style={styles.btnAccionTexto}>Gestionar Votaciones</Text>
+                    <Text style={styles.btnAccionTexto}>Votaciones</Text>
                   </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.btnAccion}
+                    onPress={() => abrirModalEditar(sec)}
+                  >
+                    <Text style={styles.btnAccionTexto}>Editar</Text>
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     style={[styles.btnAccion, styles.btnEliminar]}
                     onPress={() => handleEliminarSeccion(sec.id, sec.nombre)}
                   >
-                    <Text style={styles.btnEliminarTexto}>Eliminar</Text>
+                    <Text style={styles.btnEliminarTexto}>Borrar</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -172,11 +227,11 @@ export default function AdminSeccionesScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal: Nueva Sección */}
+      {/* Modal: Unificado para Nueva o Editar */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContenido}>
-            <Text style={styles.modalTitulo}>Nueva Sección</Text>
+            <Text style={styles.modalTitulo}>{seccionEditando ? '✏️ Editar Sección' : '✨ Nueva Sección'}</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.label}>Nombre *</Text>
               <TextInput
@@ -238,13 +293,13 @@ export default function AdminSeccionesScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.btnModal, styles.btnGuardar]}
-                  onPress={handleCrearSeccion}
+                  onPress={handleGuardarSeccion}
                   disabled={guardando}
                 >
                   {guardando ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.btnGuardarTexto}>Crear Sección</Text>
+                    <Text style={styles.btnGuardarTexto}>{seccionEditando ? 'Guardar Cambios' : 'Crear Sección'}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -314,6 +369,7 @@ const styles = StyleSheet.create({
   badgeOrden: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: '#495057' },
   badgeTexto: { color: '#FFF', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   badgeTextoOrden: { color: '#FFF', fontSize: 11, fontWeight: '600' },
+  
   accionesSeccion: { flexDirection: 'row', gap: 10 },
   btnAccion: {
     flex: 1,
@@ -325,8 +381,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnEliminar: { borderColor: '#C92A2A', backgroundColor: '#FFF1F0' },
-  btnAccionTexto: { color: '#495057', fontSize: 14, fontWeight: '600' },
-  btnEliminarTexto: { color: '#C92A2A', fontSize: 14, fontWeight: '600' },
+  btnAccionTexto: { color: '#495057', fontSize: 13, fontWeight: '700' },
+  btnEliminarTexto: { color: '#C92A2A', fontSize: 13, fontWeight: '700' },
 
   // Modal
   modalOverlay: {

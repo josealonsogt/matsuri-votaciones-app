@@ -1,12 +1,12 @@
 import {
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    query,
-    runTransaction,
-    serverTimestamp,
-    where,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  runTransaction,
+  serverTimestamp,
+  where,
 } from 'firebase/firestore';
 import type { Participante, Votacion } from '../types';
 import { db } from './firebaseConfig';
@@ -104,15 +104,46 @@ interface RegistrarVotoParams {
 export const registrarVoto = async (params: RegistrarVotoParams): Promise<boolean> => {
   try {
     await runTransaction(db, async (transaction) => {
-      // --- 1. Verificar que el usuario no haya votado ya ---
-      // ID determinista elimina la necesidad de índice compuesto en Firestore
+      // ==========================================
+      // FASE 1: TODAS LAS LECTURAS (READS) PRIMERO
+      // ==========================================
+
+      // 1.1 Leer si el voto ya existe
       const votoRef = doc(db, 'votos', `${params.usuarioId}_${params.votacionId}`);
       const votoExistente = await transaction.get(votoRef);
       if (votoExistente.exists()) {
         throw new Error('VOTO_DUPLICADO');
       }
 
-      // --- 2. Guardar el documento del voto con el mismo ID determinista ---
+      // 1.2 Leer todos los participantes que van a ser actualizados
+      // Guardamos sus referencias y sus datos actuales en la memoria temporal
+      const participantesLeidos: { ref: any, data: any, nota?: number }[] = [];
+
+      if (params.puntuaciones) {
+        // Método puntuacion
+        for (const [participanteId, nota] of Object.entries(params.puntuaciones)) {
+          const participanteRef = doc(db, 'participantes', participanteId);
+          const participanteSnap = await transaction.get(participanteRef);
+          if (participanteSnap.exists()) {
+            participantesLeidos.push({ ref: participanteRef, data: participanteSnap.data(), nota });
+          }
+        }
+      } else {
+        // Método unica o multiple
+        for (const participanteId of params.participantesIds) {
+          const participanteRef = doc(db, 'participantes', participanteId);
+          const participanteSnap = await transaction.get(participanteRef);
+          if (participanteSnap.exists()) {
+            participantesLeidos.push({ ref: participanteRef, data: participanteSnap.data() });
+          }
+        }
+      }
+
+      // ==========================================
+      // FASE 2: TODAS LAS ESCRITURAS (WRITES) AL FINAL
+      // ==========================================
+
+      // 2.1 Guardar el documento del voto
       transaction.set(votoRef, {
         usuarioId: params.usuarioId,
         votacionId: params.votacionId,
@@ -121,34 +152,23 @@ export const registrarVoto = async (params: RegistrarVotoParams): Promise<boolea
         timestamp: serverTimestamp(),
       });
 
-      // --- 3. Actualizar contadores según el método de votación ---
-      if (params.puntuaciones) {
-        // Método puntuacion: recalcular promedio de cada participante puntuado
-        for (const [participanteId, nota] of Object.entries(params.puntuaciones)) {
-          const participanteRef = doc(db, 'participantes', participanteId);
-          const participanteSnap = await transaction.get(participanteRef);
-          if (!participanteSnap.exists()) continue;
-
-          const datos = participanteSnap.data();
-          const nuevaSuma = (datos.sumaPuntuacion || 0) + nota;
-          const nuevoTotal = (datos.totalPuntuaciones || 0) + 1;
+      // 2.2 Actualizar los contadores de los participantes usando los datos ya leídos
+      for (const participante of participantesLeidos) {
+        if (params.puntuaciones && participante.nota !== undefined) {
+          // Actualización para "puntuacion"
+          const nuevaSuma = (participante.data.sumaPuntuacion || 0) + participante.nota;
+          const nuevoTotal = (participante.data.totalPuntuaciones || 0) + 1;
           const nuevoPromedio = Math.round((nuevaSuma / nuevoTotal) * 10) / 10;
 
-          transaction.update(participanteRef, {
+          transaction.update(participante.ref, {
             sumaPuntuacion: nuevaSuma,
             totalPuntuaciones: nuevoTotal,
             promedioEstrellas: nuevoPromedio,
           });
-        }
-      } else {
-        // Método unica o multiple: incrementar contador de votos
-        for (const participanteId of params.participantesIds) {
-          const participanteRef = doc(db, 'participantes', participanteId);
-          const participanteSnap = await transaction.get(participanteRef);
-          if (!participanteSnap.exists()) continue;
-
-          transaction.update(participanteRef, {
-            votos: (participanteSnap.data().votos || 0) + 1,
+        } else {
+          // Actualización para "unica" o "multiple"
+          transaction.update(participante.ref, {
+            votos: (participante.data.votos || 0) + 1,
           });
         }
       }

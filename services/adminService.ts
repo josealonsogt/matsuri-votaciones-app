@@ -3,15 +3,19 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
-  where,
+  where
 } from 'firebase/firestore';
 import type { MetodoVotacion, Participante, Seccion, Votacion } from '../types';
 import { db } from './firebaseConfig';
+
+
 
 // ==================== GESTIÓN DE ROLES ====================
 
@@ -289,6 +293,22 @@ interface AgregarParticipanteParams {
   imagenUrl?: string;
 }
 
+export const obtenerTodosLosUsuarios = async () => {
+  try {
+    const usuariosRef = collection(db, 'usuarios');
+    const q = query(usuariosRef, orderBy('fecha_registro', 'desc'));
+    const snapshot = await getDocs(q);
+    
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  } catch (error) {
+    console.error('❌ Error al obtener usuarios:', error);
+    return [];
+  }
+};
+
 export const agregarParticipante = async (
   votacionId: string,
   params: AgregarParticipanteParams
@@ -350,6 +370,37 @@ export const eliminarParticipante = async (participanteId: string): Promise<bool
     return true;
   } catch (error) {
     console.error('❌ Error al eliminar participante:', error);
+    return false;
+  }
+}; // Asegúrate de tener getDoc y setDoc importados arriba
+
+// --- CONFIGURACIÓN GLOBAL DEL EVENTO ---
+
+export const obtenerEstadoEvento = async (): Promise<boolean> => {
+  try {
+    const configRef = doc(db, 'configuracion', 'evento');
+    const configSnap = await getDoc(configRef);
+    
+    if (configSnap.exists()) {
+      return configSnap.data().votacionesPausadas ?? false;
+    } else {
+      // Si es la primera vez y no existe, lo creamos abierto (false)
+      await setDoc(configRef, { votacionesPausadas: false });
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Error al obtener estado del evento:', error);
+    return false;
+  }
+};
+
+export const togglePausaEvento = async (pausado: boolean): Promise<boolean> => {
+  try {
+    const configRef = doc(db, 'configuracion', 'evento');
+    await updateDoc(configRef, { votacionesPausadas: pausado });
+    return true;
+  } catch (error) {
+    console.error('❌ Error al pausar evento:', error);
     return false;
   }
 };
