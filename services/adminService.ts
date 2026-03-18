@@ -226,6 +226,7 @@ export const crearVotacion = async (params: CrearVotacionParams): Promise<boolea
       metodoVotacion: params.metodoVotacion,
       maxOpciones: params.maxOpciones || null,
       estado: 'abierta',
+      visible: true, // 👈 AÑADIMOS ESTO
       fechaCreacion: serverTimestamp(),
       fechaCierre: null,
     });
@@ -234,6 +235,17 @@ export const crearVotacion = async (params: CrearVotacionParams): Promise<boolea
     return true;
   } catch (error) {
     console.error('❌ Error al crear votación:', error);
+    return false;
+  }
+};
+
+export const actualizarVisibilidadVotacion = async (votacionId: string, visible: boolean): Promise<boolean> => {
+  try {
+    const votacionRef = doc(db, 'votaciones', votacionId);
+    await updateDoc(votacionRef, { visible });
+    return true;
+  } catch (error) {
+    console.error('❌ Error al actualizar visibilidad:', error);
     return false;
   }
 };
@@ -254,6 +266,7 @@ export const obtenerVotacionesPorSeccion = async (seccionId: string): Promise<Vo
         metodoVotacion: data.metodoVotacion,
         maxOpciones: data.maxOpciones || undefined,
         estado: data.estado,
+        visible: data.visible ?? true, // 👈 AÑADIMOS ESTA LÍNEA
         fechaCreacion: data.fechaCreacion?.toDate() || new Date(),
         fechaCierre: data.fechaCierre?.toDate() || undefined,
       } as Votacion;
@@ -280,6 +293,7 @@ export const obtenerTodasLasVotaciones = async (): Promise<Votacion[]> => {
         metodoVotacion: data.metodoVotacion,
         maxOpciones: data.maxOpciones || undefined,
         estado: data.estado,
+        visible: data.visible ?? true, // 👈 Y AÑADIMOS ESTA LÍNEA AQUÍ TAMBIÉN
         fechaCreacion: data.fechaCreacion?.toDate() || new Date(),
         fechaCierre: data.fechaCierre?.toDate() || undefined,
       } as Votacion;
@@ -397,6 +411,30 @@ export const eliminarParticipante = async (participanteId: string): Promise<bool
     return true;
   } catch (error) {
     console.error('❌ Error al eliminar participante:', error);
+    return false;
+  }
+};
+
+// Añade esto al final de services/adminService.ts
+
+export const actualizarVotacion = async (votacionId: string, params: Partial<CrearVotacionParams>): Promise<boolean> => {
+  try {
+    const votacionRef = doc(db, 'votaciones', votacionId);
+    await updateDoc(votacionRef, params as any);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al actualizar votación:', error);
+    return false;
+  }
+};
+
+export const actualizarParticipante = async (participanteId: string, params: Partial<AgregarParticipanteParams>): Promise<boolean> => {
+  try {
+    const participanteRef = doc(db, 'participantes', participanteId);
+    await updateDoc(participanteRef, params as any);
+    return true;
+  } catch (error) {
+    console.error('❌ Error al actualizar participante:', error);
     return false;
   }
 };

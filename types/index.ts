@@ -19,19 +19,18 @@ export interface Seccion {
 	activa: boolean;
 	fechaCreacion: Date;
 }
-
 export interface Votacion {
-	id: string;
-	seccionId: string;
-	titulo: string;
-	descripcion?: string;
-	metodoVotacion: MetodoVotacion;
-	maxOpciones?: number;
-	estado: 'abierta' | 'cerrada';
-	fechaCreacion: Date;
-	fechaCierre?: Date;
+    id: string;
+    seccionId: string;
+    titulo: string;
+    descripcion?: string;
+    metodoVotacion: MetodoVotacion;
+    maxOpciones?: number;
+    estado: 'abierta' | 'cerrada';
+    visible?: boolean; // 👈 AÑADIMOS ESTO AQUÍ
+    fechaCreacion: Date;
+    fechaCierre?: Date;
 }
-
 export interface Participante {
 	id: string;
 	votacionId: string;
