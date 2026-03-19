@@ -1,11 +1,15 @@
-import { Stack } from "expo-router";
-import { AuthProvider } from "../contexts/AuthContext";
-import { ToastProvider } from "../contexts/ToastContext"; // 👈 1. Lo importamos
+// ============================================================================
+// 🏗️ ROOT LAYOUT — app/_layout.tsx
+// ============================================================================
+
+import { Stack } from 'expo-router';
+import { AuthProvider } from '../contexts/AuthContext';
+import { ToastProvider } from '../contexts/ToastContext';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <ToastProvider>  {/* 👈 2. Lo ponemos envolviendo la app */}
+      <ToastProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="dashboard" />

@@ -1,3 +1,16 @@
+// ============================================================================
+// ⚖️ SERVICIO DE VOTACIONES — services/votacionesService.ts
+//
+// Operaciones que realizan los USUARIOS (no el admin):
+//   - Leer datos de una votación y sus participantes
+//   - Verificar si ya votaron
+//   - Registrar un voto de forma atómica y segura
+//
+// SEGURIDAD CLAVE: registrarVoto usa una Transacción de Firestore.
+// Esto garantiza que un voto sea completamente registrado o completamente
+// descartado; nunca queda a medias aunque se corte el internet.
+// ============================================================================
+
 import {
   collection,
   doc,
@@ -11,7 +24,17 @@ import {
 import type { Participante, Votacion } from '../types';
 import { db } from './firebaseConfig';
 
-export const verificarVotoExistente = async (usuarioId: string, votacionId: string): Promise<boolean> => {
+// ─── Lecturas ─────────────────────────────────────────────────────────────────
+
+/**
+ * Comprueba si este usuario ya emitió su voto en esta votación.
+ * Usamos un ID determinista "usuarioId_votacionId" para que sea imposible
+ * insertar dos documentos con el mismo voto (la colisión de ID lo impide).
+ */
+export const verificarVotoExistente = async (
+  usuarioId: string,
+  votacionId: string
+): Promise<boolean> => {
   try {
     const votoRef = doc(db, 'votos', `${usuarioId}_${votacionId}`);
     const snap = await getDoc(votoRef);
@@ -22,47 +45,15 @@ export const verificarVotoExistente = async (usuarioId: string, votacionId: stri
   }
 };
 
-export const obtenerParticipantesVotacion = async (votacionId: string): Promise<Participante[]> => {
-  try {
-    const participantesRef = collection(db, 'participantes');
-    const q = query(participantesRef, where('votacionId', '==', votacionId));
-    const snapshot = await getDocs(q);
-
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        votacionId: data.votacionId,
-        nombre: data.nombre,
-        descripcion: data.descripcion || undefined,
-        imagenUrl: data.imagenUrl || undefined,
-        votos: data.votos || 0,
-        sumaPuntuacion: data.sumaPuntuacion || 0,
-        totalPuntuaciones: data.totalPuntuaciones || 0,
-        promedioEstrellas: data.promedioEstrellas || 0,
-      } as Participante;
-    });
-  } catch (error) {
-    console.error('❌ Error al obtener participantes:', error);
-    return [];
-  }
-};
-
 export const obtenerVotacion = async (votacionId: string): Promise<Votacion | null> => {
   try {
-    const votacionRef = doc(db, 'votaciones', votacionId);
-    const snap = await getDoc(votacionRef);
+    const snap = await getDoc(doc(db, 'votaciones', votacionId));
     if (!snap.exists()) return null;
-
     const data = snap.data();
     return {
       id: snap.id,
-      seccionId: data.seccionId,
-      titulo: data.titulo,
-      descripcion: data.descripcion || undefined,
-      metodoVotacion: data.metodoVotacion,
-      maxOpciones: data.maxOpciones || undefined,
-      estado: data.estado,
+      ...data,
+      visible: data.visible ?? true,
       fechaCreacion: data.fechaCreacion?.toDate() || new Date(),
       fechaCierre: data.fechaCierre?.toDate() || undefined,
     } as Votacion;
@@ -72,6 +63,19 @@ export const obtenerVotacion = async (votacionId: string): Promise<Votacion | nu
   }
 };
 
+export const obtenerParticipantesVotacion = async (votacionId: string): Promise<Participante[]> => {
+  try {
+    const q = query(collection(db, 'participantes'), where('votacionId', '==', votacionId));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Participante[];
+  } catch (error) {
+    console.error('❌ Error al obtener participantes:', error);
+    return [];
+  }
+};
+
+// ─── Registrar Voto ───────────────────────────────────────────────────────────
+
 interface RegistrarVotoParams {
   usuarioId: string;
   votacionId: string;
@@ -79,37 +83,55 @@ interface RegistrarVotoParams {
   puntuaciones?: Record<string, number>;
 }
 
+/**
+ * El núcleo de la seguridad del sistema de votación.
+ *
+ * La lógica DENTRO de runTransaction sigue el orden obligatorio de Firebase:
+ *   PASO 1 — Todas las lecturas primero (verificar duplicado + leer participantes)
+ *   PASO 2 — Todas las escrituras después (guardar voto + actualizar contadores)
+ *
+ * Si alguna lectura detecta un problema (p.ej. voto duplicado), lanzamos un
+ * error que aborta la transacción entera sin escribir nada.
+ */
 export const registrarVoto = async (params: RegistrarVotoParams): Promise<boolean> => {
   try {
     await runTransaction(db, async (transaction) => {
-      // 1. LEER PRIMERO
+      // ── PASO 1: LEER TODO ────────────────────────────────────────────────
+
+      // Comprobar que el usuario no ha votado ya en esta votación
       const votoRef = doc(db, 'votos', `${params.usuarioId}_${params.votacionId}`);
       const votoExistente = await transaction.get(votoRef);
       if (votoExistente.exists()) {
         throw new Error('VOTO_DUPLICADO');
       }
 
-      const participantesLeidos: { ref: any, data: any, nota?: number }[] = [];
+      // Leer los documentos de todos los participantes afectados
+      type ParticipanteLeido = { ref: ReturnType<typeof doc>; data: Record<string, number>; nota?: number };
+      const participantesLeidos: ParticipanteLeido[] = [];
 
       if (params.puntuaciones) {
-        for (const [participanteId, nota] of Object.entries(params.puntuaciones)) {
-          const participanteRef = doc(db, 'participantes', participanteId);
-          const participanteSnap = await transaction.get(participanteRef);
-          if (participanteSnap.exists()) {
-            participantesLeidos.push({ ref: participanteRef, data: participanteSnap.data(), nota });
+        // Método puntuación: solo actualizamos los que recibieron nota
+        for (const [id, nota] of Object.entries(params.puntuaciones)) {
+          const ref = doc(db, 'participantes', id);
+          const snap = await transaction.get(ref);
+          if (snap.exists()) {
+            participantesLeidos.push({ ref, data: snap.data() as Record<string, number>, nota });
           }
         }
       } else {
-        for (const participanteId of params.participantesIds) {
-          const participanteRef = doc(db, 'participantes', participanteId);
-          const participanteSnap = await transaction.get(participanteRef);
-          if (participanteSnap.exists()) {
-            participantesLeidos.push({ ref: participanteRef, data: participanteSnap.data() });
+        // Método único o múltiple: actualizamos todos los seleccionados
+        for (const id of params.participantesIds) {
+          const ref = doc(db, 'participantes', id);
+          const snap = await transaction.get(ref);
+          if (snap.exists()) {
+            participantesLeidos.push({ ref, data: snap.data() as Record<string, number> });
           }
         }
       }
 
-      // 2. ESCRIBIR DESPUÉS
+      // ── PASO 2: ESCRIBIR TODO ─────────────────────────────────────────────
+
+      // Guardamos el recibo del voto (prueba de que este usuario ya votó)
       transaction.set(votoRef, {
         usuarioId: params.usuarioId,
         votacionId: params.votacionId,
@@ -118,20 +140,22 @@ export const registrarVoto = async (params: RegistrarVotoParams): Promise<boolea
         timestamp: serverTimestamp(),
       });
 
-      for (const participante of participantesLeidos) {
-        if (params.puntuaciones && participante.nota !== undefined) {
-          const nuevaSuma = (participante.data.sumaPuntuacion || 0) + participante.nota;
-          const nuevoTotal = (participante.data.totalPuntuaciones || 0) + 1;
+      // Actualizamos los contadores de cada participante
+      for (const p of participantesLeidos) {
+        if (params.puntuaciones && p.nota !== undefined) {
+          // Puntuación: recalculamos la media de forma incremental
+          const nuevaSuma = (p.data.sumaPuntuacion || 0) + p.nota;
+          const nuevoTotal = (p.data.totalPuntuaciones || 0) + 1;
           const nuevoPromedio = Math.round((nuevaSuma / nuevoTotal) * 10) / 10;
-
-          transaction.update(participante.ref, {
+          transaction.update(p.ref, {
             sumaPuntuacion: nuevaSuma,
             totalPuntuaciones: nuevoTotal,
             promedioEstrellas: nuevoPromedio,
           });
         } else {
-          transaction.update(participante.ref, {
-            votos: (participante.data.votos || 0) + 1,
+          // Único/Múltiple: sumamos un voto simple
+          transaction.update(p.ref, {
+            votos: (p.data.votos || 0) + 1,
           });
         }
       }
