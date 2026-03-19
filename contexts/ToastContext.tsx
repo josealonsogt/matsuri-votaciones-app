@@ -42,6 +42,7 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <ToastContext.Provider value={{ showToast }}>
+      <>
       {children}
       
       {/* El cartelito visual que flota por encima de todo */}
@@ -55,6 +56,8 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
           </Text>
         </Animated.View>
       )}
+        </>
+
     </ToastContext.Provider>
   );
 };

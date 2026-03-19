@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,21 +13,31 @@ import {
   View,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import {
+  actualizarSeccion,
   crearSeccion,
   eliminarSeccion,
+  obtenerEstadoEvento,
   obtenerSecciones,
+  togglePausaEvento,
 } from '../../services/adminService';
 import type { Seccion } from '../../types';
 
 export default function AdminSeccionesScreen() {
   const router = useRouter();
   const { usuario } = useAuth();
+  const { showToast } = useToast();
 
   const [secciones, setSecciones] = useState<Seccion[]>([]);
   const [cargando, setCargando] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // 🔒 ESTADO DEL EVENTO (Candado)
+  const [eventoPausado, setEventoPausado] = useState(false);
+
+  // Estados del formulario
+  const [seccionEditando, setSeccionEditando] = useState<string | null>(null);
   const [nombreSeccion, setNombreSeccion] = useState('');
   const [iconoSeccion, setIconoSeccion] = useState('');
   const [descripcionSeccion, setDescripcionSeccion] = useState('');
@@ -39,56 +50,40 @@ export default function AdminSeccionesScreen() {
 
   const cargarSecciones = async () => {
     setCargando(true);
-    const data = await obtenerSecciones();
-    setSecciones(data);
+    
+    // Cargamos secciones y el estado del candado a la vez
+    const [dataSecciones, estadoPausa] = await Promise.all([
+      obtenerSecciones(),
+      obtenerEstadoEvento()
+    ]);
+    
+    setSecciones(dataSecciones);
+    setEventoPausado(estadoPausa);
+    
     setCargando(false);
   };
 
-  const handleCrearSeccion = async () => {
-    if (!nombreSeccion.trim()) {
-      return Alert.alert('Error', 'El nombre de la sección es obligatorio');
-    }
-
-    setGuardando(true);
-    const exito = await crearSeccion({
-      nombre: nombreSeccion.trim(),
-      icono: iconoSeccion.trim() || undefined,
-      descripcion: descripcionSeccion.trim() || undefined,
-      orden: parseInt(ordenSeccion) || 0,
-    });
-    setGuardando(false);
-
+  // 🔒 FUNCIÓN PARA PAUSAR/ABRIR EL EVENTO
+  const handleTogglePausa = async () => {
+    const nuevoEstado = !eventoPausado;
+    setEventoPausado(nuevoEstado); // Cambio visual inmediato
+    
+    const exito = await togglePausaEvento(nuevoEstado);
     if (exito) {
-      Alert.alert('✅ Éxito', 'Sección creada correctamente');
-      setModalVisible(false);
-      limpiarFormulario();
-      cargarSecciones();
+      showToast(nuevoEstado ? "🛑 Evento PAUSADO" : "✅ Evento ABIERTO", nuevoEstado ? "error" : "success");
     } else {
-      Alert.alert('❌ Error', 'No se pudo crear la sección');
+      setEventoPausado(!nuevoEstado); // Revertimos si falla en Firebase
+      showToast("❌ Error al cambiar estado", "error");
     }
   };
 
-  const handleEliminarSeccion = (id: string, nombre: string) => {
-    Alert.alert(
-      '⚠️ Confirmar Eliminación',
-      `¿Estás seguro de eliminar "${nombre}"? Esto eliminará todas sus votaciones y participantes.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            const exito = await eliminarSeccion(id);
-            if (exito) {
-              Alert.alert('✅ Eliminado', 'Sección eliminada correctamente');
-              cargarSecciones();
-            } else {
-              Alert.alert('❌ Error', 'No se pudo eliminar la sección');
-            }
-          },
-        },
-      ]
-    );
+  const abrirModalEditar = (sec: Seccion) => {
+    setSeccionEditando(sec.id);
+    setNombreSeccion(sec.nombre);
+    setIconoSeccion(sec.icono || '');
+    setDescripcionSeccion(sec.descripcion || '');
+    setOrdenSeccion(sec.orden.toString());
+    setModalVisible(true);
   };
 
   const limpiarFormulario = () => {
@@ -96,8 +91,87 @@ export default function AdminSeccionesScreen() {
     setIconoSeccion('');
     setDescripcionSeccion('');
     setOrdenSeccion('0');
+    setSeccionEditando(null);
   };
 
+  const abrirModalCrear = () => {
+    limpiarFormulario();
+    setModalVisible(true);
+  };
+
+  const handleGuardarSeccion = async () => {
+    if (!nombreSeccion.trim()) {
+      return showToast('El nombre de la sección es obligatorio', 'error');
+    }
+
+    setGuardando(true);
+    let exito = false;
+
+    const datosFormulario = {
+      nombre: nombreSeccion.trim(),
+      icono: iconoSeccion.trim() || undefined,
+      descripcion: descripcionSeccion.trim() || undefined,
+      orden: parseInt(ordenSeccion) || 0,
+    };
+
+    if (seccionEditando) {
+      exito = await actualizarSeccion(seccionEditando, datosFormulario);
+    } else {
+      exito = await crearSeccion(datosFormulario);
+    }
+    
+    setGuardando(false);
+
+    if (exito) {
+      showToast(seccionEditando ? '✅ Sección actualizada' : '✅ Sección creada', 'success');
+      setModalVisible(false);
+      limpiarFormulario();
+      cargarSecciones();
+    } else {
+      showToast('❌ Hubo un error al guardar', 'error');
+    }
+  };
+
+  const handleEliminarSeccion = async (id: string, nombre: string) => {
+    // --- LÓGICA PARA LA WEB (Ordenador) ---
+    if (Platform.OS === 'web') {
+      // 🛡️ El typeof window evita que TypeScript bloquee la compilación al hacer el export
+      const confirmado = typeof window !== 'undefined' ? window.confirm(`⚠️ ¿Estás seguro de eliminar "${nombre}"? \n\nSe borrarán todas sus votaciones.`) : false;
+      
+      if (confirmado) {
+        const exito = await eliminarSeccion(id);
+        if (exito) {
+          showToast('🗑️ Sección eliminada', 'success');
+          cargarSecciones();
+        } else {
+          showToast('❌ Error al eliminar', 'error');
+        }
+      }
+    } 
+    // --- LÓGICA PARA MÓVILES (iOS/Android) ---
+    else {
+      Alert.alert(
+        '⚠️ Confirmar Eliminación',
+        `¿Estás seguro de eliminar "${nombre}"? Esto eliminará todas sus votaciones.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: async () => {
+              const exito = await eliminarSeccion(id);
+              if (exito) {
+                showToast('🗑️ Sección eliminada', 'success');
+                cargarSecciones();
+              } else {
+                showToast('❌ Error al eliminar', 'error');
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
   const iconosSugeridos = ['🎮', '🎵', '🎭', '🎲', '🎨', '🚗', '👗', '📚', '🎪', '🏆'];
 
   if (cargando) {
@@ -116,11 +190,33 @@ export default function AdminSeccionesScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* 🔒 BANNER DEL CANDADO GLOBAL */}
+      <View style={[styles.bannerPausa, eventoPausado ? styles.bannerPausado : styles.bannerActivo]}>
+        <View style={styles.bannerInfo}>
+          <Text style={styles.bannerTitulo}>
+            {eventoPausado ? '🛑 EL EVENTO ESTÁ PAUSADO' : '🟢 EL EVENTO ESTÁ ABIERTO'}
+          </Text>
+          <Text style={styles.bannerSubtitulo}>
+            {eventoPausado 
+              ? 'Nadie puede votar en ninguna categoría ahora mismo.' 
+              : 'Los usuarios pueden votar normalmente.'}
+          </Text>
+        </View>
+        <TouchableOpacity 
+          style={[styles.btnToggle, eventoPausado ? styles.btnToggleAbrir : styles.btnTogglePausar]}
+          onPress={handleTogglePausa}
+        >
+          <Text style={styles.btnToggleTexto}>
+            {eventoPausado ? '🔓 Abrir Evento' : '🔒 Pausar'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={styles.contenido}>
         <View style={styles.seccion}>
           <View style={styles.headerSeccion}>
             <Text style={styles.tituloSeccion}>Secciones del Evento</Text>
-            <TouchableOpacity style={styles.btnNuevo} onPress={() => setModalVisible(true)}>
+            <TouchableOpacity style={styles.btnNuevo} onPress={abrirModalCrear}>
               <Text style={styles.btnNuevoTexto}>+ Nueva Sección</Text>
             </TouchableOpacity>
           </View>
@@ -141,29 +237,33 @@ export default function AdminSeccionesScreen() {
                       <Text style={styles.descripcionSeccionText}>{sec.descripcion}</Text>
                     )}
                     <View style={styles.metadatos}>
-                      <View style={sec.activa ? styles.badgeActiva : styles.badgeInactiva}>
-                        <Text style={styles.badgeTexto}>
-                          {sec.activa ? '✅ Activa' : '⏸️ Inactiva'}
-                        </Text>
-                      </View>
                       <View style={styles.badgeOrden}>
                         <Text style={styles.badgeTextoOrden}>Orden: {sec.orden}</Text>
                       </View>
                     </View>
                   </View>
                 </View>
+                
                 <View style={styles.accionesSeccion}>
                   <TouchableOpacity
                     style={styles.btnAccion}
                     onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
                   >
-                    <Text style={styles.btnAccionTexto}>Gestionar Votaciones</Text>
+                    <Text style={styles.btnAccionTexto}>Votaciones</Text>
                   </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.btnAccion}
+                    onPress={() => abrirModalEditar(sec)}
+                  >
+                    <Text style={styles.btnAccionTexto}>Editar</Text>
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     style={[styles.btnAccion, styles.btnEliminar]}
                     onPress={() => handleEliminarSeccion(sec.id, sec.nombre)}
                   >
-                    <Text style={styles.btnEliminarTexto}>Eliminar</Text>
+                    <Text style={styles.btnEliminarTexto}>Borrar</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -172,11 +272,11 @@ export default function AdminSeccionesScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal: Nueva Sección */}
+      {/* Modal: Unificado para Nueva o Editar */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContenido}>
-            <Text style={styles.modalTitulo}>Nueva Sección</Text>
+            <Text style={styles.modalTitulo}>{seccionEditando ? '✏️ Editar Sección' : '✨ Nueva Sección'}</Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.label}>Nombre *</Text>
               <TextInput
@@ -238,13 +338,13 @@ export default function AdminSeccionesScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.btnModal, styles.btnGuardar]}
-                  onPress={handleCrearSeccion}
+                  onPress={handleGuardarSeccion}
                   disabled={guardando}
                 >
                   {guardando ? (
                     <ActivityIndicator color="#FFF" />
                   ) : (
-                    <Text style={styles.btnGuardarTexto}>Crear Sección</Text>
+                    <Text style={styles.btnGuardarTexto}>{seccionEditando ? 'Guardar Cambios' : 'Crear Sección'}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -263,9 +363,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
   },
+  
+  // 🎨 ESTILOS DEL BANNER DEL CANDADO
+  bannerPausa: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    padding: 16, 
+    borderBottomWidth: 1 
+  },
+  bannerActivo: { backgroundColor: '#EBFBEE', borderBottomColor: '#B2F2BB' },
+  bannerPausado: { backgroundColor: '#FFF5F5', borderBottomColor: '#FFC9C9' },
+  bannerInfo: { flex: 1, paddingRight: 10 },
+  bannerTitulo: { fontSize: 16, fontWeight: 'bold', color: '#212529', marginBottom: 4 },
+  bannerSubtitulo: { fontSize: 13, color: '#495057' },
+  btnToggle: { 
+    paddingVertical: 10, 
+    paddingHorizontal: 16, 
+    borderRadius: 8, 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  btnTogglePausar: { backgroundColor: '#C92A2A' },
+  btnToggleAbrir: { backgroundColor: '#2B8A3E' },
+  btnToggleTexto: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
+
   btnVolver: {
     alignSelf: 'flex-start',
     paddingVertical: 8,
@@ -309,11 +432,9 @@ const styles = StyleSheet.create({
   nombreSeccion: { fontSize: 18, fontWeight: 'bold', color: '#212529', marginBottom: 5 },
   descripcionSeccionText: { fontSize: 14, color: '#6C757D', marginBottom: 10 },
   metadatos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  badgeActiva: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: '#2B8A3E' },
-  badgeInactiva: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: '#6C757D' },
   badgeOrden: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: '#495057' },
-  badgeTexto: { color: '#FFF', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   badgeTextoOrden: { color: '#FFF', fontSize: 11, fontWeight: '600' },
+  
   accionesSeccion: { flexDirection: 'row', gap: 10 },
   btnAccion: {
     flex: 1,
@@ -325,8 +446,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnEliminar: { borderColor: '#C92A2A', backgroundColor: '#FFF1F0' },
-  btnAccionTexto: { color: '#495057', fontSize: 14, fontWeight: '600' },
-  btnEliminarTexto: { color: '#C92A2A', fontSize: 14, fontWeight: '600' },
+  btnAccionTexto: { color: '#495057', fontSize: 13, fontWeight: '700' },
+  btnEliminarTexto: { color: '#C92A2A', fontSize: 13, fontWeight: '700' },
 
   // Modal
   modalOverlay: {

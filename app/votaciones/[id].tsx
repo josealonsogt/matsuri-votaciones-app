@@ -6,31 +6,34 @@ import type { Votacion } from '../../types';
 
 export default function VotacionesSeccionScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams(); // En web puede tardar un tick en aparecer
-  const seccionId = id as string;
+  const params = useLocalSearchParams(); 
+  
+  
+  // 🛡️ PARCHE A PRUEBA DE BALAS: Buscamos el ID se llame como se llame
+  const idReal = (params.id || params.seccionId) as string;
 
   const [votaciones, setVotaciones] = useState<Votacion[]>([]);
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    // Parche Web: Solo buscamos en Firebase cuando la URL ya nos ha dado el ID
-    if (seccionId) {
+    // Solo busca si de verdad ha encontrado el ID en la URL
+    if (idReal) {
       const cargarVotaciones = async () => {
         setCargando(true);
-        const data = await obtenerVotacionesPorSeccion(seccionId);
+        const data = await obtenerVotacionesPorSeccion(idReal);
         setVotaciones(data);
         setCargando(false);
       };
       cargarVotaciones();
     }
-  }, [seccionId]);
+  }, [idReal]);
 
   const obtenerEtiquetaMetodo = (metodo: string): string => {
     const etiquetas: Record<string, string> = { unica: 'Voto Único', multiple: 'Voto Múltiple', puntuacion: 'Puntuación 1-10' };
     return etiquetas[metodo] || metodo;
   };
 
-  if (!seccionId || cargando) {
+  if (!idReal || cargando) {
     return <View style={[styles.container, styles.centerContent]}><ActivityIndicator size="large" color="#000" /></View>;
   }
 
@@ -55,8 +58,8 @@ export default function VotacionesSeccionScreen() {
             <TouchableOpacity
               key={votacion.id}
               style={[styles.tarjetaVotacion, votacion.estado === 'cerrada' && styles.tarjetaCerrada]}
-              onPress={() => { if (votacion.estado === 'abierta') router.push(`/votar/${votacion.id}` as any); }}
-              disabled={votacion.estado === 'cerrada'}
+              onPress={() => router.push(`/votar/${votacion.id}` as any)}
+              
             >
               <View style={styles.infoVotacion}>
                 <Text style={styles.tituloVotacion}>{votacion.titulo}</Text>

@@ -1,10 +1,31 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useToast } from '../../../contexts/ToastContext';
 import { actualizarEstadoVotacion, actualizarParticipante, actualizarVisibilidadVotacion, actualizarVotacion, agregarParticipante, crearVotacion, eliminarParticipante, eliminarVotacion, obtenerParticipantes, obtenerVotacionesPorSeccion } from '../../../services/adminService';
 import type { MetodoVotacion, Participante, Votacion } from '../../../types';
 
+const SkeletonItem = () => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 600, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 600, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [opacity]);
+
+  return (
+    <Animated.View style={[styles.tarjeta, { padding: 16, opacity }]}>
+      <View style={{ height: 18, backgroundColor: '#E9ECEF', borderRadius: 4, width: '70%', marginBottom: 12 }} />
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        <View style={{ height: 16, backgroundColor: '#E9ECEF', borderRadius: 8, width: 70 }} />
+        <View style={{ height: 16, backgroundColor: '#E9ECEF', borderRadius: 8, width: 70 }} />
+      </View>
+    </Animated.View>
+  );
+};
 
 export default function AdminVotacionesSeccionScreen() {
   const router = useRouter();
@@ -13,6 +34,7 @@ export default function AdminVotacionesSeccionScreen() {
 
   const [votaciones, setVotaciones] = useState<Votacion[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandida, setExpandida] = useState<string | null>(null);
   const [participantesPorVotacion, setParticipantesPorVotacion] = useState<Record<string, Participante[]>>({});
   const [cargandoParticipantes, setCargandoParticipantes] = useState<Record<string, boolean>>({});
@@ -37,11 +59,17 @@ export default function AdminVotacionesSeccionScreen() {
     if (seccionId) cargarVotaciones();
   }, [seccionId]);
 
-  const cargarVotaciones = async () => {
-    setCargando(true);
+  const cargarVotaciones = async (isRefresh = false) => {
+    if (!isRefresh) setCargando(true);
     const data = await obtenerVotacionesPorSeccion(seccionId as string);
     setVotaciones(data);
-    setCargando(false);
+    if (!isRefresh) setCargando(false);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await cargarVotaciones(true);
+    setRefreshing(false);
   };
 
   const toggleExpandir = async (votacionId: string) => {
@@ -130,16 +158,23 @@ export default function AdminVotacionesSeccionScreen() {
   };
 
   const handleEliminarVotacion = (id: string, tituloVot: string) => {
-    Alert.alert('⚠️ Eliminar votación', `¿Eliminar "${tituloVot}" y todos sus participantes?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-          await eliminarVotacion(id);
-          showToast('🗑️ Votación eliminada', 'success');
-          if (expandida === id) setExpandida(null);
-          cargarVotaciones();
-        }
+    const confirmarEliminacion = async () => {
+      await eliminarVotacion(id);
+      showToast('🗑️ Votación eliminada', 'success');
+      if (expandida === id) setExpandida(null);
+      cargarVotaciones();
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`⚠️ Eliminar votación\n\n¿Eliminar "${tituloVot}" y todos sus participantes?`)) {
+        confirmarEliminacion();
       }
-    ]);
+    } else {
+      Alert.alert('⚠️ Eliminar votación', `¿Eliminar "${tituloVot}" y todos sus participantes?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: confirmarEliminacion }
+      ]);
+    }
   };
 
   // --- LÓGICA DE PARTICIPANTES ---
@@ -154,7 +189,6 @@ export default function AdminVotacionesSeccionScreen() {
     setParticipanteEditando(p.id);
     setNombreNuevo(p.nombre);
     setDescripcionNueva(p.descripcion || '');
-    setImagenNueva(p.imagenUrl || '');
   };
 
   const handleGuardarParticipante = async (votacionId: string) => {
@@ -164,7 +198,6 @@ export default function AdminVotacionesSeccionScreen() {
     const datos = {
       nombre: nombreNuevo.trim(),
       descripcion: descripcionNueva.trim() || undefined,
-      imagenUrl: imagenNueva.trim() || undefined,
     };
 
     const exito = participanteEditando
@@ -184,16 +217,23 @@ export default function AdminVotacionesSeccionScreen() {
   };
 
   const handleEliminarParticipante = (votacionId: string, participanteId: string, nombre: string) => {
-    Alert.alert('Eliminar', `¿Quitar "${nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-          await eliminarParticipante(participanteId);
-          showToast('🗑️ Opción eliminada', 'success');
-          const parts = await obtenerParticipantes(votacionId);
-          setParticipantesPorVotacion((prev) => ({ ...prev, [votacionId]: parts }));
-        }
+    const confirmarEliminacion = async () => {
+      await eliminarParticipante(participanteId);
+      showToast('🗑️ Opción eliminada', 'success');
+      const parts = await obtenerParticipantes(votacionId);
+      setParticipantesPorVotacion((prev) => ({ ...prev, [votacionId]: parts }));
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Eliminar\n\n¿Quitar "${nombre}"?`)) {
+        confirmarEliminacion();
       }
-    ]);
+    } else {
+      Alert.alert('Eliminar', `¿Quitar "${nombre}"?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: confirmarEliminacion }
+      ]);
+    }
   };
 
   if (cargando) return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color="#000" /></View>;
@@ -284,7 +324,6 @@ export default function AdminVotacionesSeccionScreen() {
                       <Text style={styles.labelFormulario}>{participanteEditando ? '✏️ Editando Opción' : '✨ Añadir nueva opción'}</Text>
                       <TextInput style={styles.input} placeholder="Nombre *" value={nombreNuevo} onChangeText={setNombreNuevo} />
                       <TextInput style={styles.input} placeholder="Descripción (opcional)" value={descripcionNueva} onChangeText={setDescripcionNueva} />
-                      <TextInput style={styles.input} placeholder="URL de imagen (opcional)" value={imagenNueva} onChangeText={setImagenNueva} autoCapitalize="none" />
                       
                       <View style={{flexDirection: 'row', gap: 10}}>
                         {participanteEditando && (
