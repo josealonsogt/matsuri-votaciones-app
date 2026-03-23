@@ -12,7 +12,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -45,6 +47,7 @@ export default function AdminSeccionesScreen() {
   const [eventoPausado, setEventoPausado] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  const [eliminandoItems, setEliminandoItems] = useState<string[]>([]);
 
   // Campos del formulario de sección
   const [seccionEditando, setSeccionEditando] = useState<string | null>(null);
@@ -135,11 +138,14 @@ export default function AdminSeccionesScreen() {
       '⚠️ Eliminar sección',
       `¿Eliminar "${nombreSec}"? Se borrarán todas sus votaciones.`,
       async () => {
+        setEliminandoItems(prev => [...prev, id]);
         const exito = await eliminarSeccion(id);
         if (exito) {
           showToast('🗑️ Sección eliminada', 'success');
-          cargar();
+          await cargar();
+          setEliminandoItems(prev => prev.filter(item => item !== id));
         } else {
+          setEliminandoItems(prev => prev.filter(item => item !== id));
           showToast('❌ Error al eliminar', 'error');
         }
       }
@@ -199,54 +205,67 @@ export default function AdminSeccionesScreen() {
             <Text style={styles.vacioSubtexto}>Crea la primera sección para empezar.</Text>
           </View>
         ) : (
-          secciones.map((sec) => (
-            <View key={sec.id} style={styles.tarjeta}>
-              <View style={styles.tarjetaContenido}>
-                <Text style={styles.iconoGrande}>{sec.icono || '📁'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.nombreSeccion}>{sec.nombre}</Text>
-                  {sec.descripcion && (
-                    <Text style={styles.descripcionSeccion}>{sec.descripcion}</Text>
-                  )}
-                  <View style={styles.badgeOrdenWrap}>
-                    <View style={styles.badgeOrden}>
-                      <Text style={styles.badgeOrdenTexto}>Orden: {sec.orden}</Text>
+          secciones.map((sec) => {
+            const isDeleting = eliminandoItems.includes(sec.id);
+            return (
+              <View key={sec.id} style={[styles.tarjeta, isDeleting && styles.tarjetaEliminando]}>
+                <View style={[styles.tarjetaContenido, isDeleting && { opacity: 0.5 }]}>
+                  <Text style={styles.iconoGrande}>{sec.icono || '📁'}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nombreSeccion}>{sec.nombre}</Text>
+                    {sec.descripcion && (
+                      <Text style={styles.descripcionSeccion}>{sec.descripcion}</Text>
+                    )}
+                    <View style={styles.badgeOrdenWrap}>
+                      <View style={styles.badgeOrden}>
+                        <Text style={styles.badgeOrdenTexto}>Orden: {sec.orden}</Text>
+                      </View>
                     </View>
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.acciones}>
-                <TouchableOpacity
-                  style={styles.btnAccion}
-                  onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
-                >
-                  <Text style={styles.btnAccionTexto}>Votaciones</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.btnAccion} onPress={() => abrirEditar(sec)}>
-                  <Text style={styles.btnAccionTexto}>Editar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.btnAccion, styles.btnEliminar]}
-                  onPress={() => handleEliminar(sec.id, sec.nombre)}
-                >
-                  <Text style={styles.btnEliminarTexto}>Borrar</Text>
-                </TouchableOpacity>
+                {isDeleting ? (
+                  <View style={styles.eliminandoContainer}>
+                    <ActivityIndicator size="small" color="#C92A2A" />
+                    <Text style={styles.eliminandoTexto}>Eliminando sección...</Text>
+                  </View>
+                ) : (
+                  <View style={styles.acciones}>
+                    <TouchableOpacity
+                      style={styles.btnAccion}
+                      onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
+                    >
+                      <Text style={styles.btnAccionTexto}>Votaciones</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.btnAccion} onPress={() => abrirEditar(sec)}>
+                      <Text style={styles.btnAccionTexto}>Editar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.btnAccion, styles.btnEliminar]}
+                      onPress={() => handleEliminar(sec.id, sec.nombre)}
+                    >
+                      <Text style={styles.btnEliminarTexto}>Borrar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
-            </View>
-          ))
+            );
+          })
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
 
       {/* Modal unificado para crear y editar secciones */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalContenido}>
             <Text style={styles.modalTitulo}>
               {seccionEditando ? '✏️ Editar Sección' : '✨ Nueva Sección'}
             </Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={styles.label}>Nombre *</Text>
               <TextInput
                 style={styles.input}
@@ -318,7 +337,7 @@ export default function AdminSeccionesScreen() {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -329,21 +348,23 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center' },
   topBar: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 15 },
   btnVolver: {
-    alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12,
-    backgroundColor: '#F8F9FA', borderRadius: 6, borderWidth: 1, borderColor: '#DEE2E6',
+    alignSelf: 'flex-start', paddingVertical: 10, paddingHorizontal: 16,
+    backgroundColor: '#FFF', borderRadius: 10, borderWidth: 1, borderColor: '#DEE2E6',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
-  btnVolverTexto: { color: '#495057', fontSize: 14, fontWeight: '600' },
+  btnVolverTexto: { color: '#495057', fontSize: 14, fontWeight: '700' },
   banner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 16, borderBottomWidth: 1,
+    padding: 20, borderBottomWidth: 1,
   },
-  bannerActivo: { backgroundColor: '#EBFBEE', borderBottomColor: '#B2F2BB' },
-  bannerPausado: { backgroundColor: '#FFF5F5', borderBottomColor: '#FFC9C9' },
-  bannerTitulo: { fontSize: 15, fontWeight: 'bold', color: '#212529', marginBottom: 3 },
-  bannerSubtitulo: { fontSize: 13, color: '#495057' },
-  btnToggle: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
-  btnTogglePausar: { backgroundColor: '#C92A2A' },
-  btnToggleAbrir: { backgroundColor: '#2B8A3E' },
+  bannerActivo: { backgroundColor: '#EBFBEE', borderBottomColor: '#D3F9D8' },
+  bannerPausado: { backgroundColor: '#FFF5F5', borderBottomColor: '#FFE3E3' },
+  bannerTitulo: { fontSize: 16, fontWeight: '800', color: '#212529', marginBottom: 4 },
+  bannerSubtitulo: { fontSize: 13, color: '#495057', lineHeight: 18 },
+  btnToggle: { paddingVertical: 12, paddingHorizontal: 18, borderRadius: 10, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  btnTogglePausar: { backgroundColor: '#E03131' },
+  btnToggleAbrir: { backgroundColor: '#2F9E44' },
   btnToggleTexto: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
   cuerpo: { flex: 1 },
   headerLista: {
@@ -351,14 +372,31 @@ const styles = StyleSheet.create({
     padding: 20, paddingBottom: 10,
   },
   tituloLista: { fontSize: 20, fontWeight: 'bold', color: '#212529' },
-  btnNuevo: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 6 },
-  btnNuevoTexto: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  btnNuevo: { 
+    backgroundColor: '#212529', paddingVertical: 12, paddingHorizontal: 18, 
+    borderRadius: 10, shadowColor: '#000', shadowOffset: { width:0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 
+  },
+  btnNuevoTexto: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   vacio: { alignItems: 'center', marginTop: 40, padding: 20 },
   vacioTexto: { fontSize: 16, color: '#6C757D', fontWeight: '600' },
   vacioSubtexto: { fontSize: 14, color: '#ADB5BD', marginTop: 8, textAlign: 'center' },
   tarjeta: {
     backgroundColor: '#FFF', marginHorizontal: 20, marginBottom: 14,
-    borderRadius: 12, borderWidth: 1, borderColor: '#DEE2E6', padding: 18,
+    borderRadius: 16, padding: 18,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    borderWidth: 1, borderColor: '#F1F3F5',
+  },
+  tarjetaEliminando: {
+    backgroundColor: '#FAFAFA', borderColor: '#FFE3E3',
+  },
+  eliminandoContainer: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 11, backgroundColor: '#FFF5F5',
+    borderRadius: 8, borderWidth: 1, borderColor: '#FFC9C9',
+  },
+  eliminandoTexto: {
+    color: '#C92A2A', fontSize: 13, fontWeight: '600', marginLeft: 8,
   },
   tarjetaContenido: { flexDirection: 'row', marginBottom: 14 },
   iconoGrande: { fontSize: 38, marginRight: 14 },
@@ -369,25 +407,30 @@ const styles = StyleSheet.create({
   badgeOrdenTexto: { color: '#FFF', fontSize: 11, fontWeight: '600' },
   acciones: { flexDirection: 'row', gap: 10 },
   btnAccion: {
-    flex: 1, backgroundColor: '#F8F9FA', paddingVertical: 11,
-    borderRadius: 8, borderWidth: 1, borderColor: '#DEE2E6', alignItems: 'center',
+    flex: 1, backgroundColor: '#FFF', paddingVertical: 12,
+    borderRadius: 10, borderWidth: 1, borderColor: '#DEE2E6', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02, shadowRadius: 2, elevation: 1,
   },
-  btnEliminar: { borderColor: '#C92A2A', backgroundColor: '#FFF1F0' },
+  btnEliminar: { borderColor: '#FFA8A8', backgroundColor: '#FFF5F5' },
   btnAccionTexto: { color: '#495057', fontSize: 13, fontWeight: '700' },
   btnEliminarTexto: { color: '#C92A2A', fontSize: 13, fontWeight: '700' },
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center', alignItems: 'center', padding: 20,
   },
   modalContenido: {
-    backgroundColor: '#FFF', borderRadius: 12, padding: 24,
+    backgroundColor: '#FFF', borderRadius: 16, padding: 24,
     width: '100%', maxWidth: 500, maxHeight: '90%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1, shadowRadius: 20, elevation: 10,
   },
-  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#212529', marginBottom: 20 },
+  modalTitulo: { fontSize: 24, fontWeight: '800', color: '#212529', marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '600', color: '#495057', marginBottom: 8 },
   input: {
-    backgroundColor: '#F8F9FA', padding: 14, borderRadius: 8,
-    fontSize: 16, marginBottom: 16, borderWidth: 1, borderColor: '#DEE2E6',
+    backgroundColor: '#F8F9FA', padding: 16, borderRadius: 12,
+    fontSize: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E9ECEF',
+    color: '#212529'
   },
   iconosSugeridos: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
   btnIcono: {
@@ -399,6 +442,6 @@ const styles = StyleSheet.create({
   btnModal: { flex: 1, paddingVertical: 14, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   btnCancelar: { backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#DEE2E6' },
   btnCancelarTexto: { color: '#6C757D', fontSize: 15, fontWeight: '600' },
-  btnGuardar: { backgroundColor: '#000' },
   btnGuardarTexto: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+  btnGuardar: { backgroundColor: '#000' },
 });
