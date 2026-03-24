@@ -16,12 +16,53 @@ import { useAuth } from '../contexts/AuthContext';
 import { obtenerSeccionesActivas } from '../services/adminService';
 import { auth } from '../services/firebaseConfig';
 import type { Seccion } from '../types';
+// 💡 CORRECCIÓN 1: Ruta relativa correcta (ya que dashboard.tsx está en /app)
+import { theme } from '../styles/theme';
+
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { usuario, cargando: cargandoAuth } = useAuth();
   const [secciones, setSecciones] = useState<Seccion[]>([]);
   const [cargando, setCargando] = useState(true);
+
+  // 💡 CORRECCIÓN 2: Movemos los estilos dentro de la función del componente
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.colors.background },
+    center: { justifyContent: 'center', alignItems: 'center' },
+    header: {
+      padding: 30,
+      backgroundColor: theme.colors.surface,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+      ...theme.shadows.soft,
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+      marginBottom: 20,
+    },
+    headerInfo: { flex: 1, paddingRight: 10 },
+    saludo: { fontSize: 26, fontWeight: '800', color: theme.colors.textDark },
+    subtitulo: { fontSize: 16, color: theme.colors.textMuted, marginTop: 6 },
+    btnAdmin: { marginTop: 15, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: theme.colors.textDark, borderRadius: theme.borderRadius.md, alignSelf: 'flex-start' },
+    textoAdmin: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
+    btnSalir: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: theme.colors.background, borderRadius: theme.borderRadius.md },
+    textoSalir: { color: theme.colors.textMuted, fontSize: 14, fontWeight: '700' },
+    cuerpo: { paddingHorizontal: 20, paddingBottom: 40 },
+    tituloLista: { fontSize: 20, fontWeight: '800', marginBottom: 16, color: theme.colors.textDark },
+    vacio: { alignItems: 'center', marginTop: 40, padding: 30, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed' },
+    vacioTexto: { fontSize: 16, color: theme.colors.textDark, fontWeight: '700' },
+    vacioSubtexto: { fontSize: 14, color: theme.colors.textMuted, marginTop: 6, textAlign: 'center' },
+    tarjeta: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: theme.colors.surface, padding: 20, borderRadius: theme.borderRadius.lg, marginBottom: 16,
+      ...theme.shadows.soft,
+    },
+    tarjetaContenido: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    icono: { fontSize: 34, marginRight: 16 },
+    textosTarjeta: { flex: 1, paddingRight: 10 },
+    tituloTarjeta: { fontSize: 18, fontWeight: '700', color: theme.colors.textDark, marginBottom: 4 },
+    descripcionTarjeta: { fontSize: 14, color: theme.colors.textMuted, lineHeight: 20 },
+    flecha: { fontSize: 20, color: theme.colors.border, fontWeight: 'bold' },
+  });
 
   // Protección de ruta — sin DNI no se puede ver el dashboard
   useEffect(() => {
@@ -124,76 +165,3 @@ export default function DashboardScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  center: { justifyContent: 'center', alignItems: 'center' },
-  header: {
-    padding: 28,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerInfo: { flex: 1, paddingRight: 10 },
-  saludo: { fontSize: 24, fontWeight: 'bold', color: '#212529' },
-  subtitulo: { fontSize: 16, color: '#6C757D', marginTop: 4 },
-  btnAdmin: {
-    marginTop: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFF3CD',
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#FFECB5',
-  },
-  textoAdmin: { color: '#856404', fontWeight: 'bold', fontSize: 13 },
-  btnSalir: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#DEE2E6',
-  },
-  textoSalir: { color: '#6C757D', fontSize: 14, fontWeight: '500' },
-  cuerpo: { padding: 20 },
-  tituloLista: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#212529' },
-  vacio: {
-    alignItems: 'center',
-    marginTop: 40,
-    padding: 20,
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DEE2E6',
-    borderStyle: 'dashed',
-  },
-  vacioTexto: { fontSize: 16, color: '#495057', fontWeight: '600' },
-  vacioSubtexto: { fontSize: 14, color: '#ADB5BD', marginTop: 5, textAlign: 'center' },
-  tarjeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#DEE2E6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tarjetaContenido: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  icono: { fontSize: 30, marginRight: 15 },
-  textosTarjeta: { flex: 1, paddingRight: 10 },
-  tituloTarjeta: { fontSize: 18, fontWeight: '600', color: '#212529', marginBottom: 4 },
-  descripcionTarjeta: { fontSize: 13, color: '#6C757D' },
-  flecha: { fontSize: 22, color: '#ADB5BD' },
-});

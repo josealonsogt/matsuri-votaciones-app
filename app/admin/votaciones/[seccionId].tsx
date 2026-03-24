@@ -100,6 +100,7 @@ export default function AdminVotacionesSeccionScreen() {
 
   useEffect(() => {
     if (seccionId) cargarVotaciones();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seccionId]);
 
   const cargarVotaciones = async () => {

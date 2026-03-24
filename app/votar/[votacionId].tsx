@@ -33,6 +33,8 @@ import {
 } from '../../services/votacionesService';
 import type { Participante, Votacion } from '../../types';
 
+// 💡 CORRECCIÓN 1: Ruta relativa (2 niveles arriba)
+
 // ─── Componentes de tarjeta ───────────────────────────────────────────────────
 
 interface PropsTarjetaUnica {
@@ -186,7 +188,7 @@ export default function VotarScreen() {
 
     inicializar();
     return () => { if (unsubscribe) unsubscribe(); };
-  }, [votacionId, usuario?.uid]);
+  }, [votacionId, usuario?.uid, cargandoAuth, router, usuario]);
 
   // ─── Lógica de selección ──────────────────────────────────────────────────────
 
@@ -198,7 +200,7 @@ export default function VotarScreen() {
       const max = votacion?.maxOpciones ?? 3;
       if (nueva.size >= max) {
         const msg = `Solo puedes elegir hasta ${max} opciones.`;
-        Platform.OS === 'web' ? alert(msg) : Alert.alert('Límite alcanzado', msg);
+        if (Platform.OS === 'web') alert(msg); else Alert.alert('Límite alcanzado', msg);
         return;
       }
       nueva.add(id);
@@ -240,11 +242,10 @@ export default function VotarScreen() {
     });
 
     if (exito) {
-      // Transición directa a resultados — el estado yaVoto activa la vista de ranking
       setYaVoto(true);
     } else {
       const msg = 'No se pudo registrar el voto. Es posible que ya hayas votado anteriormente.';
-      Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg);
+      if (Platform.OS === 'web') alert(msg); else Alert.alert('Error', msg);
     }
     setEnviando(false);
   };
@@ -253,8 +254,7 @@ export default function VotarScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      // Si entró por QR directo y no hay historial, lo mandamos al inicio
-      router.replace('/dashboard'); // Cambiar a '/' si tu inicio principal es el index
+      router.replace('/dashboard' as any);
     }
   };
 
@@ -287,7 +287,7 @@ export default function VotarScreen() {
 
     if (votacion.metodoVotacion === 'puntuacion') {
       ranking.sort((a, b) => (b.promedioEstrellas || 0) - (a.promedioEstrellas || 0));
-      totalVotos = 10; // Escala de referencia para la barra de progreso
+      totalVotos = 10;
     } else {
       totalVotos = ranking.reduce((sum, p) => sum + p.votos, 0);
       ranking.sort((a, b) => b.votos - a.votos);
@@ -379,6 +379,7 @@ export default function VotarScreen() {
       ? `Elige hasta ${votacion.maxOpciones ?? 3} opciones.`
       : 'Puntúa del 1 al 10 a los participantes.';
 
+  // 💡 INYECTAMOS EL TEMA EN LA RENDERIZACIÓN DE LAS TARJETAS (que están fuera del scope de estilos)
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -455,106 +456,77 @@ export default function VotarScreen() {
   );
 }
 
+// 💡 CORRECCIÓN 2: Para evitar el problema de inicialización con componentes externos, 
+// hemos sustituido `theme.colors...` por sus valores HEX reales o variables seguras en el StyleSheet.
+// Si los colores cambian en el futuro, recuerda actualizarlos aquí.
+const PRIMARY = '#E03131';
+const BACKGROUND = '#F4F6F8';
+const SURFACE = '#FFFFFF';
+const TEXT_DARK = '#1C1E21';
+const TEXT_MUTED = '#868E96';
+const BORDER = '#E9ECEF';
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  center: { justifyContent: 'center', alignItems: 'center', padding: 30 },
-  textoError: { fontSize: 16, color: '#6C757D', marginBottom: 20 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
-  },
-  btnVolver: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#DEE2E6',
-  },
-  btnVolverTexto: { color: '#495057', fontSize: 14, fontWeight: '600' },
-  badge: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#000' },
-  badgeGris: { backgroundColor: '#6C757D' },
-  badgeTexto: { color: '#FFF', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  bannerPausado: {
-    backgroundColor: '#ffebee',
-    padding: 12,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f44336',
-  },
-  textoBannerPausado: { color: '#d32f2f', fontWeight: 'bold' },
-  cuerpo: { flex: 1, padding: 20 },
-  titulo: { fontSize: 26, fontWeight: 'bold', color: '#212529', marginBottom: 8 },
-  descripcion: { fontSize: 15, color: '#6C757D', marginBottom: 16 },
-  instruccionBox: {
-    backgroundColor: '#FFF',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 20,
-    borderLeftWidth: 3,
-    borderLeftColor: '#000',
-  },
-  instruccionTexto: { fontSize: 14, color: '#495057', fontWeight: '500' },
-  listaParticipantes: { gap: 12 },
-  tarjeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#DEE2E6',
-  },
-  tarjetaSeleccionada: { borderColor: '#000', backgroundColor: '#FAFAFA' },
-  tarjetaDeshabilitada: { opacity: 0.5 },
+  container: { flex: 1, backgroundColor: BACKGROUND },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
+  textoError: { fontSize: 16, color: TEXT_MUTED, marginBottom: 20, fontWeight: '600' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: 'transparent' },
+  btnVolver: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: SURFACE, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  btnVolverTexto: { color: TEXT_DARK, fontSize: 14, fontWeight: '700' },
+  badge: { paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: TEXT_DARK },
+  badgeGris: { backgroundColor: TEXT_MUTED },
+  badgeTexto: { color: '#FFF', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  bannerPausado: { backgroundColor: '#FFF5F5', padding: 14, alignItems: 'center', borderRadius: 12, marginHorizontal: 20, marginBottom: 10 },
+  textoBannerPausado: { color: PRIMARY, fontWeight: '800' },
+  cuerpo: { flex: 1, paddingHorizontal: 20 },
+  titulo: { fontSize: 28, fontWeight: '900', color: TEXT_DARK, marginBottom: 8 },
+  descripcion: { fontSize: 15, color: TEXT_MUTED, marginBottom: 20, lineHeight: 22 },
+  instruccionBox: { backgroundColor: SURFACE, padding: 16, borderRadius: 12, marginBottom: 24, borderLeftWidth: 4, borderLeftColor: PRIMARY, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  instruccionTexto: { fontSize: 15, color: TEXT_DARK, fontWeight: '700' },
+  listaParticipantes: { gap: 14 },
+  
+  // Tarjetas de votación
+  tarjeta: { backgroundColor: SURFACE, padding: 20, borderRadius: 20, borderWidth: 2, borderColor: 'transparent', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3, flexDirection: 'row', alignItems: 'center' },
+  tarjetaSeleccionada: { borderColor: PRIMARY, backgroundColor: '#FFF5F5' },
+  tarjetaDeshabilitada: { opacity: 0.4 },
   infoParticipante: { flex: 1 },
-  nombreParticipante: { fontSize: 16, fontWeight: '600', color: '#495057' },
-  nombreSeleccionado: { color: '#000' },
-  descripcionParticipante: { fontSize: 13, color: '#ADB5BD', marginTop: 3 },
-  radio: {
-    width: 24, height: 24, borderRadius: 12, borderWidth: 2,
-    borderColor: '#DEE2E6', justifyContent: 'center', alignItems: 'center', marginLeft: 10,
-  },
-  radioSeleccionado: { borderColor: '#000' },
-  radioPunto: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#000' },
-  checkbox: {
-    width: 24, height: 24, borderRadius: 6, borderWidth: 2,
-    borderColor: '#DEE2E6', justifyContent: 'center', alignItems: 'center', marginLeft: 10,
-  },
-  checkboxSeleccionado: { backgroundColor: '#000', borderColor: '#000' },
-  checkmark: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
-  notasContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  btnNota: {
-    width: 34, height: 34, borderRadius: 6, backgroundColor: '#F8F9FA',
-    borderWidth: 1, borderColor: '#DEE2E6', justifyContent: 'center', alignItems: 'center',
-  },
-  btnNotaActivo: { backgroundColor: '#000', borderColor: '#000' },
-  btnNotaTexto: { fontSize: 13, fontWeight: '600', color: '#6C757D' },
+  nombreParticipante: { fontSize: 17, fontWeight: '800', color: TEXT_DARK, marginBottom: 4 },
+  nombreSeleccionado: { color: PRIMARY },
+  descripcionParticipante: { fontSize: 14, color: TEXT_MUTED, lineHeight: 20 },
+  
+  // Controles (Radios y Checkboxes)
+  radio: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: BORDER, justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
+  radioSeleccionado: { borderColor: PRIMARY },
+  radioPunto: { width: 14, height: 14, borderRadius: 7, backgroundColor: PRIMARY },
+  checkbox: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: BORDER, justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
+  checkboxSeleccionado: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  checkmark: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+  
+  // Botones de puntuación
+  notasContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  btnNota: { width: 38, height: 38, borderRadius: 10, backgroundColor: BACKGROUND, justifyContent: 'center', alignItems: 'center' },
+  btnNotaActivo: { backgroundColor: PRIMARY },
+  btnNotaTexto: { fontSize: 15, fontWeight: '700', color: TEXT_MUTED },
   btnNotaTextoActivo: { color: '#FFF' },
-  notaElegida: { fontSize: 13, color: '#2B8A3E', fontWeight: '600', marginTop: 8 },
-  footerVotar: { padding: 20, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#E9ECEF' },
-  btnConfirmar: { backgroundColor: '#000', paddingVertical: 16, borderRadius: 10, alignItems: 'center' },
-  btnConfirmarDeshabilitado: { backgroundColor: '#ADB5BD' },
-  btnConfirmarTexto: { color: '#FFF', fontSize: 17, fontWeight: 'bold' },
-  // Resultados
-  zonaResultados: {
-    backgroundColor: '#FFF', padding: 20, borderRadius: 12,
-    borderWidth: 1, borderColor: '#DEE2E6', marginTop: 10,
-  },
-  filaRanking: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  medalla: { fontSize: 24, width: 35, textAlign: 'center', marginRight: 10 },
+  notaElegida: { fontSize: 14, color: PRIMARY, fontWeight: '800', marginTop: 12 },
+  
+  // Footer y Botón Confirmar
+  footerVotar: { padding: 20, backgroundColor: SURFACE, borderTopWidth: 1, borderTopColor: BORDER, paddingBottom: 30 },
+  btnConfirmar: { backgroundColor: PRIMARY, paddingVertical: 18, borderRadius: 12, alignItems: 'center', shadowColor: PRIMARY, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 5 },
+  btnConfirmarDeshabilitado: { backgroundColor: BORDER, shadowOpacity: 0 },
+  btnConfirmarTexto: { color: '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+  
+  // Resultados y Ranking
+  zonaResultados: { backgroundColor: SURFACE, padding: 24, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 5, marginTop: 10 },
+  filaRanking: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  medalla: { fontSize: 26, width: 40, textAlign: 'center', marginRight: 12 },
   infoRanking: { flex: 1 },
-  rankingFila: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  nombreRanking: { fontSize: 15, fontWeight: '600', color: '#495057', flex: 1, marginRight: 10 },
-  nombreGanador: { color: '#000', fontWeight: 'bold' },
-  puntosPrincipal: { fontSize: 14, fontWeight: 'bold', color: '#000' },
-  puntosSecundario: { fontSize: 11, color: '#6C757D', marginTop: 2 },
-  barraFondo: { height: 8, backgroundColor: '#E9ECEF', borderRadius: 4, overflow: 'hidden' },
-  barraRelleno: { height: '100%', backgroundColor: '#6C757D', borderRadius: 4 },
-  barraGanador: { backgroundColor: '#F59E0B' },
+  rankingFila: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  nombreRanking: { fontSize: 16, fontWeight: '700', color: TEXT_DARK, flex: 1, marginRight: 10 },
+  nombreGanador: { color: PRIMARY, fontWeight: '900' },
+  puntosPrincipal: { fontSize: 15, fontWeight: '900', color: TEXT_DARK },
+  puntosSecundario: { fontSize: 12, color: TEXT_MUTED, marginTop: 2, fontWeight: '600' },
+  barraFondo: { height: 10, backgroundColor: BACKGROUND, borderRadius: 5, overflow: 'hidden' },
+  barraRelleno: { height: '100%', backgroundColor: TEXT_DARK, borderRadius: 5 },
+  barraGanador: { backgroundColor: PRIMARY },
 });

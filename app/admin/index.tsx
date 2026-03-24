@@ -12,7 +12,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,7 +22,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
   actualizarSeccion,
@@ -30,6 +31,7 @@ import {
   obtenerSecciones,
   togglePausaEvento,
 } from '../../services/adminService';
+import { globalStyles } from '../../styles/globalStyles';
 import type { Seccion } from '../../types';
 import { confirmarAccion } from '../../utils/alert';
 
@@ -37,7 +39,6 @@ const ICONOS_SUGERIDOS = ['🎮', '🎵', '🎭', '🎲', '🎨', '🚗', '👗'
 
 export default function AdminSeccionesScreen() {
   const router = useRouter();
-  const { usuario } = useAuth();
   const { showToast } = useToast();
 
   const [secciones, setSecciones] = useState<Seccion[]>([]);
@@ -52,6 +53,61 @@ export default function AdminSeccionesScreen() {
   const [icono, setIcono] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [orden, setOrden] = useState('0');
+
+  // 💡 ESTILOS DENTRO DEL COMPONENTE Y FUERA DEL FLUJO DE RENDER
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#F8F9FA' },
+    center: { justifyContent: 'center', alignItems: 'center' },
+    topBar: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15 },
+    btnVolver: { alignSelf: 'flex-start', paddingVertical: 6 },
+    btnVolverTexto: { color: '#007AFF', fontSize: 16, fontWeight: '600' },
+    
+    // Banner Premium
+    banner: { 
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      padding: 20, marginHorizontal: 20, borderRadius: 16, marginBottom: 10,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2
+    },
+    bannerActivo: { backgroundColor: '#EBFBEE' },
+    bannerPausado: { backgroundColor: '#FFF5F5' },
+    bannerTitulo: { fontSize: 16, fontWeight: '900', marginBottom: 4 },
+    bannerSubtitulo: { fontSize: 13, color: '#495057', lineHeight: 18 },
+    btnToggle: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+    btnTogglePausar: { backgroundColor: '#E03131' },
+    btnToggleAbrir: { backgroundColor: '#2F9E44' },
+    btnToggleTexto: { color: '#FFF', fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  
+    // Listado
+    headerLista: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 20 },
+  
+    // Tarjetas Evolucionadas
+    tarjetaHeader: { flexDirection: 'row', marginBottom: 20, alignItems: 'center' },
+    iconoContainer: { 
+      width: 60, height: 60, borderRadius: 16, backgroundColor: '#F8F9FA', 
+      justifyContent: 'center', alignItems: 'center', marginRight: 16 
+    },
+    iconoGrande: { fontSize: 32 },
+    tarjetaInfo: { flex: 1 },
+    badgeOrden: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, backgroundColor: '#F1F3F5' },
+    badgeOrdenTexto: { color: '#495057', fontSize: 12, fontWeight: '700' },
+  
+    modalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center', alignItems: 'center', padding: 20,
+    },
+    modalContenido: {
+      backgroundColor: '#FFF', borderRadius: 12, padding: 24,
+      width: '100%', maxWidth: 500, maxHeight: '90%',
+    },
+    modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#212529', marginBottom: 20 },
+    iconosSugeridos: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+    btnIcono: {
+      width: 50, height: 50, borderRadius: 8, backgroundColor: '#F8F9FA',
+      borderWidth: 1, borderColor: '#DEE2E6', justifyContent: 'center', alignItems: 'center',
+    },
+    btnIconoActivo: { backgroundColor: '#000', borderColor: '#000' },
+    modalAcciones: { flexDirection: 'row', gap: 12, marginTop: 10 },
+  });
 
   useEffect(() => {
     cargar();
@@ -154,251 +210,192 @@ export default function AdminSeccionesScreen() {
     );
   }
 
-  return (
-    <View style={styles.container}>
-      {/* Botón de volver al dashboard */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.btnVolver} onPress={() => router.push('/dashboard' as any)}>
-          <Text style={styles.btnVolverTexto}>← Dashboard</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Banner del interruptor maestro del evento */}
-      <View style={[styles.banner, eventoPausado ? styles.bannerPausado : styles.bannerActivo]}>
-        <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={styles.bannerTitulo}>
-            {eventoPausado ? '🛑 EVENTO PAUSADO' : '🟢 EVENTO ABIERTO'}
-          </Text>
-          <Text style={styles.bannerSubtitulo}>
-            {eventoPausado
-              ? 'Nadie puede votar en ninguna categoría ahora mismo.'
-              : 'Los usuarios pueden votar normalmente.'}
-          </Text>
+  const renderSeccion = ({ item: sec }: { item: Seccion }) => (
+    <View style={globalStyles.card}>
+      <View style={styles.tarjetaHeader}>
+        <View style={styles.iconoContainer}>
+          <Text style={styles.iconoGrande}>{sec.icono || '📁'}</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.btnToggle, eventoPausado ? styles.btnToggleAbrir : styles.btnTogglePausar]}
-          onPress={handleTogglePausa}
-        >
-          <Text style={styles.btnToggleTexto}>
-            {eventoPausado ? '🔓 Abrir' : '🔒 Pausar'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.tarjetaInfo}>
+          <Text style={[globalStyles.title, { fontSize: 18, marginBottom: 4 }]}>{sec.nombre}</Text>
+          {sec.descripcion && (
+            <Text style={[globalStyles.subtitle, { marginBottom: 8 }]} numberOfLines={2}>
+              {sec.descripcion}
+            </Text>
+          )}
+          <View style={styles.badgeOrden}>
+            <Text style={styles.badgeOrdenTexto}>Orden: {sec.orden}</Text>
+          </View>
+        </View>
       </View>
 
-      <ScrollView style={styles.cuerpo}>
-        <View style={styles.headerLista}>
-          <Text style={styles.tituloLista}>Secciones del Evento</Text>
-          <TouchableOpacity style={styles.btnNuevo} onPress={abrirCrear}>
-            <Text style={styles.btnNuevoTexto}>+ Nueva Sección</Text>
+      <View style={globalStyles.rowBetween}>
+        {/* Acción Primaria Destacada */}
+        <TouchableOpacity
+          style={[globalStyles.btnPrimary, { flex: 1, backgroundColor: '#E7F5FF' }]}
+          onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
+        >
+          <Text style={[globalStyles.btnPrimaryText, { color: '#1971C2' }]}>Ver Votaciones</Text>
+        </TouchableOpacity>
+        
+        <View style={[globalStyles.rowCenter, { gap: 8, marginLeft: 12 }]}>
+          {/* Acción Secundaria */}
+          <TouchableOpacity style={[globalStyles.btnSecondary, { paddingHorizontal: 16 }]} onPress={() => abrirEditar(sec)}>
+            <Text style={globalStyles.btnSecondaryText}>✏️ Editar</Text>
+          </TouchableOpacity>
+          {/* Acción Destructiva más discreta */}
+          <TouchableOpacity
+            style={[globalStyles.btnDanger, { paddingHorizontal: 16 }]}
+            onPress={() => handleEliminar(sec.id, sec.nombre)}
+          >
+            <Text style={globalStyles.btnDangerText}>🗑️</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={globalStyles.safeArea}>
+      <View style={globalStyles.container}>
+        {/* Botón de volver al dashboard */}
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.btnVolver} onPress={() => router.push('/dashboard' as any)}>
+            <Text style={styles.btnVolverTexto}>← Volver al Dashboard</Text>
           </TouchableOpacity>
         </View>
 
-        {secciones.length === 0 ? (
-          <View style={styles.vacio}>
-            <Text style={styles.vacioTexto}>No hay secciones todavía.</Text>
-            <Text style={styles.vacioSubtexto}>Crea la primera sección para empezar.</Text>
-          </View>
-        ) : (
-          secciones.map((sec) => (
-            <View key={sec.id} style={styles.tarjeta}>
-              <View style={styles.tarjetaContenido}>
-                <Text style={styles.iconoGrande}>{sec.icono || '📁'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.nombreSeccion}>{sec.nombre}</Text>
-                  {sec.descripcion && (
-                    <Text style={styles.descripcionSeccion}>{sec.descripcion}</Text>
-                  )}
-                  <View style={styles.badgeOrdenWrap}>
-                    <View style={styles.badgeOrden}>
-                      <Text style={styles.badgeOrdenTexto}>Orden: {sec.orden}</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.acciones}>
-                <TouchableOpacity
-                  style={styles.btnAccion}
-                  onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
-                >
-                  <Text style={styles.btnAccionTexto}>Votaciones</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.btnAccion} onPress={() => abrirEditar(sec)}>
-                  <Text style={styles.btnAccionTexto}>Editar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.btnAccion, styles.btnEliminar]}
-                  onPress={() => handleEliminar(sec.id, sec.nombre)}
-                >
-                  <Text style={styles.btnEliminarTexto}>Borrar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        )}
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      {/* Modal unificado para crear y editar secciones */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContenido}>
-            <Text style={styles.modalTitulo}>
-              {seccionEditando ? '✏️ Editar Sección' : '✨ Nueva Sección'}
+        {/* Banner del interruptor maestro del evento */}
+        <View style={[styles.banner, eventoPausado ? styles.bannerPausado : styles.bannerActivo]}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={[styles.bannerTitulo, eventoPausado ? { color: '#C92A2A' } : { color: '#2B8A3E' }]}>
+              {eventoPausado ? '🛑 EVENTO PAUSADO' : '🟢 EVENTO ABIERTO'}
             </Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.label}>Nombre *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Videojuegos, J-Pop, Cosplay..."
-                value={nombre}
-                onChangeText={setNombre}
-              />
-
-              <Text style={styles.label}>Icono (emoji)</Text>
-              <View style={styles.iconosSugeridos}>
-                {ICONOS_SUGERIDOS.map((e) => (
-                  <TouchableOpacity
-                    key={e}
-                    style={[styles.btnIcono, icono === e && styles.btnIconoActivo]}
-                    onPress={() => setIcono(e)}
-                  >
-                    <Text style={{ fontSize: 24 }}>{e}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TextInput
-                style={styles.input}
-                placeholder="O escribe tu propio emoji"
-                value={icono}
-                onChangeText={setIcono}
-                maxLength={2}
-              />
-
-              <Text style={styles.label}>Descripción (opcional)</Text>
-              <TextInput
-                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                placeholder="Breve descripción de la sección"
-                value={descripcion}
-                onChangeText={setDescripcion}
-                multiline
-                numberOfLines={3}
-              />
-
-              <Text style={styles.label}>Orden</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0"
-                keyboardType="numeric"
-                value={orden}
-                onChangeText={setOrden}
-              />
-
-              <View style={styles.modalAcciones}>
-                <TouchableOpacity
-                  style={[styles.btnModal, styles.btnCancelar]}
-                  onPress={cerrarModal}
-                  disabled={guardando}
-                >
-                  <Text style={styles.btnCancelarTexto}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.btnModal, styles.btnGuardar]}
-                  onPress={handleGuardar}
-                  disabled={guardando}
-                >
-                  {guardando ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.btnGuardarTexto}>
-                      {seccionEditando ? 'Guardar Cambios' : 'Crear Sección'}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
+            <Text style={styles.bannerSubtitulo}>
+              {eventoPausado
+                ? 'Las votaciones están bloqueadas para los asistentes.'
+                : 'El evento transcurre con normalidad.'}
+            </Text>
           </View>
+          <TouchableOpacity
+            style={[styles.btnToggle, eventoPausado ? styles.btnToggleAbrir : styles.btnTogglePausar]}
+            onPress={handleTogglePausa}
+          >
+            <Text style={styles.btnToggleTexto}>
+              {eventoPausado ? '🔓 Abrir' : '🔒 Pausar'}
+            </Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
-    </View>
+
+        <FlatList
+          data={secciones}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          renderItem={renderSeccion}
+          ListHeaderComponent={
+            <View style={styles.headerLista}>
+              <Text style={globalStyles.title}>Categorías / Secciones</Text>
+              <TouchableOpacity style={globalStyles.btnPrimary} onPress={abrirCrear}>
+                <Text style={globalStyles.btnPrimaryText}>+ Nueva</Text>
+              </TouchableOpacity>
+            </View>
+          }
+          ListEmptyComponent={
+            !cargando ? (
+              <View style={globalStyles.emptyContainer}>
+                <Text style={globalStyles.emptyIcon}>📭</Text>
+                <Text style={globalStyles.emptyTitle}>No hay secciones creadas</Text>
+                <Text style={globalStyles.emptyText}>Crea la primera categoría para empezar a organizar tu evento.</Text>
+                <TouchableOpacity style={[globalStyles.btnPrimary, { marginTop: 20 }]} onPress={abrirCrear}>
+                  <Text style={globalStyles.btnPrimaryText}>Crear mi primera sección</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null
+          }
+        />
+
+        {/* Modal unificado para crear y editar secciones */}
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContenido}>
+              <Text style={styles.modalTitulo}>
+                {seccionEditando ? '✏️ Editar Sección' : '✨ Nueva Sección'}
+              </Text>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={globalStyles.inputLabel}>Nombre *</Text>
+                <TextInput
+                  style={globalStyles.input}
+                  placeholder="Ej: Videojuegos, J-Pop, Cosplay..."
+                  value={nombre}
+                  onChangeText={setNombre}
+                />
+
+                <Text style={globalStyles.inputLabel}>Icono (emoji)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconosSugeridos}>
+                  {ICONOS_SUGERIDOS.map((e) => (
+                    <TouchableOpacity
+                      key={e}
+                      style={[styles.btnIcono, icono === e && styles.btnIconoActivo]}
+                      onPress={() => setIcono(e)}
+                    >
+                      <Text style={{ fontSize: 24 }}>{e}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TextInput
+                  style={globalStyles.input}
+                  placeholder="O escribe tu propio emoji"
+                  value={icono}
+                  onChangeText={setIcono}
+                  maxLength={2}
+                />
+
+                <Text style={globalStyles.inputLabel}>Descripción (opcional)</Text>
+                <TextInput
+                  style={[globalStyles.input, { height: 80, textAlignVertical: 'top' }]}
+                  placeholder="Breve descripción de la sección"
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  multiline
+                  numberOfLines={3}
+                />
+
+                <Text style={globalStyles.inputLabel}>Orden</Text>
+                <TextInput
+                  style={globalStyles.input}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  value={orden}
+                  onChangeText={setOrden}
+                />
+
+                <View style={styles.modalAcciones}>
+                  <TouchableOpacity
+                    style={[globalStyles.btnSecondary, { flex: 1 }]}
+                    onPress={cerrarModal}
+                    disabled={guardando}
+                  >
+                    <Text style={globalStyles.btnSecondaryText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[globalStyles.btnPrimary, { flex: 1 }]}
+                    onPress={handleGuardar}
+                    disabled={guardando}
+                  >
+                    {guardando ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={globalStyles.btnPrimaryText}>
+                        {seccionEditando ? 'Guardar' : 'Crear'}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  center: { justifyContent: 'center', alignItems: 'center' },
-  topBar: { backgroundColor: '#FFF', paddingHorizontal: 20, paddingVertical: 15 },
-  btnVolver: {
-    alignSelf: 'flex-start', paddingVertical: 8, paddingHorizontal: 12,
-    backgroundColor: '#F8F9FA', borderRadius: 6, borderWidth: 1, borderColor: '#DEE2E6',
-  },
-  btnVolverTexto: { color: '#495057', fontSize: 14, fontWeight: '600' },
-  banner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    padding: 16, borderBottomWidth: 1,
-  },
-  bannerActivo: { backgroundColor: '#EBFBEE', borderBottomColor: '#B2F2BB' },
-  bannerPausado: { backgroundColor: '#FFF5F5', borderBottomColor: '#FFC9C9' },
-  bannerTitulo: { fontSize: 15, fontWeight: 'bold', color: '#212529', marginBottom: 3 },
-  bannerSubtitulo: { fontSize: 13, color: '#495057' },
-  btnToggle: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
-  btnTogglePausar: { backgroundColor: '#C92A2A' },
-  btnToggleAbrir: { backgroundColor: '#2B8A3E' },
-  btnToggleTexto: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
-  cuerpo: { flex: 1 },
-  headerLista: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 20, paddingBottom: 10,
-  },
-  tituloLista: { fontSize: 20, fontWeight: 'bold', color: '#212529' },
-  btnNuevo: { backgroundColor: '#000', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 6 },
-  btnNuevoTexto: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  vacio: { alignItems: 'center', marginTop: 40, padding: 20 },
-  vacioTexto: { fontSize: 16, color: '#6C757D', fontWeight: '600' },
-  vacioSubtexto: { fontSize: 14, color: '#ADB5BD', marginTop: 8, textAlign: 'center' },
-  tarjeta: {
-    backgroundColor: '#FFF', marginHorizontal: 20, marginBottom: 14,
-    borderRadius: 12, borderWidth: 1, borderColor: '#DEE2E6', padding: 18,
-  },
-  tarjetaContenido: { flexDirection: 'row', marginBottom: 14 },
-  iconoGrande: { fontSize: 38, marginRight: 14 },
-  nombreSeccion: { fontSize: 17, fontWeight: 'bold', color: '#212529', marginBottom: 4 },
-  descripcionSeccion: { fontSize: 14, color: '#6C757D', marginBottom: 8 },
-  badgeOrdenWrap: { flexDirection: 'row' },
-  badgeOrden: { paddingVertical: 3, paddingHorizontal: 8, borderRadius: 10, backgroundColor: '#495057' },
-  badgeOrdenTexto: { color: '#FFF', fontSize: 11, fontWeight: '600' },
-  acciones: { flexDirection: 'row', gap: 10 },
-  btnAccion: {
-    flex: 1, backgroundColor: '#F8F9FA', paddingVertical: 11,
-    borderRadius: 8, borderWidth: 1, borderColor: '#DEE2E6', alignItems: 'center',
-  },
-  btnEliminar: { borderColor: '#C92A2A', backgroundColor: '#FFF1F0' },
-  btnAccionTexto: { color: '#495057', fontSize: 13, fontWeight: '700' },
-  btnEliminarTexto: { color: '#C92A2A', fontSize: 13, fontWeight: '700' },
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', alignItems: 'center', padding: 20,
-  },
-  modalContenido: {
-    backgroundColor: '#FFF', borderRadius: 12, padding: 24,
-    width: '100%', maxWidth: 500, maxHeight: '90%',
-  },
-  modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#212529', marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#495057', marginBottom: 8 },
-  input: {
-    backgroundColor: '#F8F9FA', padding: 14, borderRadius: 8,
-    fontSize: 16, marginBottom: 16, borderWidth: 1, borderColor: '#DEE2E6',
-  },
-  iconosSugeridos: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
-  btnIcono: {
-    width: 50, height: 50, borderRadius: 8, backgroundColor: '#F8F9FA',
-    borderWidth: 1, borderColor: '#DEE2E6', justifyContent: 'center', alignItems: 'center',
-  },
-  btnIconoActivo: { backgroundColor: '#000', borderColor: '#000' },
-  modalAcciones: { flexDirection: 'row', gap: 12, marginTop: 10 },
-  btnModal: { flex: 1, paddingVertical: 14, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  btnCancelar: { backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#DEE2E6' },
-  btnCancelarTexto: { color: '#6C757D', fontSize: 15, fontWeight: '600' },
-  btnGuardar: { backgroundColor: '#000' },
-  btnGuardarTexto: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
-});

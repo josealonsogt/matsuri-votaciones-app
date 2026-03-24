@@ -9,6 +9,9 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { obtenerParticipantes, obtenerTodasLasVotaciones } from '../../services/adminService';
+
+import { globalStyles } from '../../styles/globalStyles';
+import { theme } from '../../styles/theme';
 import type { Participante, Votacion } from '../../types';
 
 export default function ResultadosScreen() {
@@ -18,6 +21,33 @@ export default function ResultadosScreen() {
   const [ranking, setRanking] = useState<Participante[]>([]);
   const [totalVotos, setTotalVotos] = useState(0);
   const [cargandoRanking, setCargandoRanking] = useState(false);
+
+  // 💡 ESTILOS DENTRO DEL COMPONENTE
+  const styles = StyleSheet.create({
+    topBar: { backgroundColor: theme.colors.surface, padding: 20, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+    cabecera: {
+      flexDirection: 'row', padding: 18,
+      justifyContent: 'space-between', alignItems: 'center',
+    },
+    estadoVot: { fontSize: 13, color: theme.colors.textMuted, textTransform: 'capitalize' },
+    chevron: { fontSize: 16, color: theme.colors.textMuted },
+    zonaResultados: {
+      padding: 18, paddingTop: 4,
+      backgroundColor: theme.colors.background, borderTopWidth: 1, borderTopColor: theme.colors.border,
+    },
+    fila: { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
+    medalla: { fontSize: 20, width: 34, textAlign: 'center', marginRight: 10 },
+    filaTextos: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    nombreP: { fontSize: 15, fontWeight: '600', color: theme.colors.textDark, flex: 1, marginRight: 8 },
+    puntosPrincipal: { fontSize: 14, fontWeight: 'bold', color: theme.colors.textDark },
+    puntosSecundario: { fontSize: 11, color: theme.colors.textMuted, marginTop: 2 },
+    barraFondo: { height: 8, backgroundColor: theme.colors.border, borderRadius: 4, overflow: 'hidden' },
+    barraRelleno: { height: '100%', backgroundColor: theme.colors.primary, borderRadius: 4 },
+    totalVotos: {
+      textAlign: 'right', marginTop: 16, fontSize: 11,
+      color: theme.colors.textMuted, fontWeight: 'bold',
+    },
+  });
 
   useEffect(() => {
     const cargar = async () => {
@@ -56,28 +86,28 @@ export default function ResultadosScreen() {
 
   if (cargando) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <View style={[globalStyles.safeArea, globalStyles.center]}>
         <ActivityIndicator size="large" color="#000" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={globalStyles.safeArea}>
       <View style={styles.topBar}>
-        <Text style={styles.titulo}>📊 Ranking y Resultados</Text>
+        <Text style={[globalStyles.title, { marginBottom: 0 }]}>📊 Ranking y Resultados</Text>
       </View>
-      <ScrollView style={styles.cuerpo}>
-        <Text style={styles.instruccion}>
+      <ScrollView style={globalStyles.container}>
+        <Text style={[globalStyles.subtitle, { marginVertical: 16 }]}>
           Pulsa una votación para ver la clasificación en tiempo real.
         </Text>
         {votaciones.map((vot) => {
           const abierta = expandida === vot.id;
           return (
-            <View key={vot.id} style={styles.tarjeta}>
+            <View key={vot.id} style={[globalStyles.card, { padding: 0, overflow: 'hidden' }]}>
               <TouchableOpacity style={styles.cabecera} onPress={() => toggleExpandir(vot)}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.tituloVot}>{vot.titulo}</Text>
+                  <Text style={[globalStyles.title, { fontSize: 18, marginBottom: 4 }]}>{vot.titulo}</Text>
                   <Text style={styles.estadoVot}>
                     {vot.estado === 'abierta' ? '🟢 En curso' : '🔴 Finalizada'}
                     {' • '}{vot.metodoVotacion}
@@ -92,7 +122,7 @@ export default function ResultadosScreen() {
                   {cargandoRanking ? (
                     <ActivityIndicator color="#000" style={{ margin: 20 }} />
                   ) : ranking.length === 0 ? (
-                    <Text style={styles.textoVacio}>Aún no hay participantes.</Text>
+                    <Text style={globalStyles.emptyText}>Aún no hay participantes.</Text>
                   ) : (
                     ranking.map((p, i) => {
                       let porcentaje = 0;
@@ -141,40 +171,3 @@ export default function ResultadosScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  center: { justifyContent: 'center', alignItems: 'center' },
-  topBar: { backgroundColor: '#FFF', padding: 20, borderBottomWidth: 1, borderBottomColor: '#E9ECEF' },
-  titulo: { fontSize: 22, fontWeight: 'bold', color: '#212529' },
-  cuerpo: { padding: 16 },
-  instruccion: { fontSize: 14, color: '#6C757D', marginBottom: 16 },
-  tarjeta: {
-    backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12,
-    borderWidth: 1, borderColor: '#DEE2E6', overflow: 'hidden',
-  },
-  cabecera: {
-    flexDirection: 'row', padding: 18,
-    justifyContent: 'space-between', alignItems: 'center',
-  },
-  tituloVot: { fontSize: 17, fontWeight: 'bold', color: '#212529', marginBottom: 4 },
-  estadoVot: { fontSize: 13, color: '#6C757D', textTransform: 'capitalize' },
-  chevron: { fontSize: 16, color: '#ADB5BD' },
-  zonaResultados: {
-    padding: 18, paddingTop: 4,
-    backgroundColor: '#FAFAFA', borderTopWidth: 1, borderTopColor: '#F1F3F5',
-  },
-  textoVacio: { textAlign: 'center', color: '#ADB5BD', marginTop: 16, marginBottom: 8 },
-  fila: { flexDirection: 'row', alignItems: 'center', marginTop: 18 },
-  medalla: { fontSize: 20, width: 34, textAlign: 'center', marginRight: 10 },
-  filaTextos: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  nombreP: { fontSize: 15, fontWeight: '600', color: '#212529', flex: 1, marginRight: 8 },
-  puntosPrincipal: { fontSize: 14, fontWeight: 'bold', color: '#000' },
-  puntosSecundario: { fontSize: 11, color: '#6C757D', marginTop: 2 },
-  barraFondo: { height: 8, backgroundColor: '#E9ECEF', borderRadius: 4, overflow: 'hidden' },
-  barraRelleno: { height: '100%', backgroundColor: '#000', borderRadius: 4 },
-  totalVotos: {
-    textAlign: 'right', marginTop: 16, fontSize: 11,
-    color: '#ADB5BD', fontWeight: 'bold',
-  },
-});

@@ -1,15 +1,6 @@
 // ============================================================================
 // 🔐 PANTALLA DE LOGIN — app/index.tsx
-//
-// Flujo de registro en 2 pasos:
-//   Paso 1: Autenticación (Google OAuth o email+contraseña derivada del DNI)
-//   Paso 2: Vinculación del DNI (para garantizar 1 voto por persona)
-//
-// La contraseña no la elige el usuario; se deriva del DNI con un prefijo
-// fijo ("Matsuri") para que sea memorable por el sistema pero no sea
-// necesario que el usuario la recuerde.
 // ============================================================================
-
 import { useRouter } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
@@ -19,11 +10,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGoogleAuth } from '../hooks/useGoogleAuth';
 import { registrarUsuario, verificarDniExistente } from '../services/authService';
 import { auth } from '../services/firebaseConfig';
+import { theme } from '../styles/theme'; // 👈 Importación del tema corregida
 import { validarDni } from '../utils/validarDni';
 
 const esFirebaseError = (e: unknown): e is FirebaseError => e instanceof FirebaseError;
 
-// Deriva una contraseña del DNI. El usuario nunca la ve ni la necesita recordar.
 const derivarPassword = (dni: string) => `Matsuri${dni}*2026`;
 
 export default function LoginScreen() {
@@ -37,14 +28,11 @@ export default function LoginScreen() {
   const [cargando, setCargando] = useState(false);
   const [creandoCuenta, setCreandoCuenta] = useState(false);
 
-  // Redirigir al dashboard si el usuario ya está completamente registrado
   useEffect(() => {
     if (!cargandoAuth && usuario?.dniRegistrado) {
       router.replace('/dashboard' as any);
     }
   }, [usuario, cargandoAuth, router]);
-
-  // ─── Validaciones ────────────────────────────────────────────────────────────
 
   const validarCamposDni = (dniLimpio: string): boolean => {
     const formato = /^[0-9]{8}[A-Z]$/;
@@ -59,8 +47,6 @@ export default function LoginScreen() {
     return true;
   };
 
-  // ─── Login / Registro con Email ───────────────────────────────────────────────
-
   const procesarEmailManual = async () => {
     const dniLimpio = dni.trim().toUpperCase();
     const emailLimpio = email.trim().toLowerCase();
@@ -74,42 +60,23 @@ export default function LoginScreen() {
     const password = derivarPassword(dniLimpio);
 
     try {
-      // Intento 1: login (el usuario ya existe)
       try {
         setCreandoCuenta(false);
         await signInWithEmailAndPassword(auth, emailLimpio, password);
-        // El useEffect de arriba detectará el cambio de sesión y redirigirá
         return;
       } catch (errorLogin: unknown) {
         const codigo = esFirebaseError(errorLogin) ? errorLogin.code : '';
 
-        // Si el email no existe o la credencial es inválida, intentamos registrar
-        if (
-          codigo === 'auth/user-not-found' ||
-          codigo === 'auth/invalid-credential' ||
-          codigo === 'auth/invalid-email'
-        ) {
-          // Verificamos que el DNI no esté vinculado a otro email antes de crear
+        if (codigo === 'auth/user-not-found' || codigo === 'auth/invalid-credential' || codigo === 'auth/invalid-email') {
           const dniOcupado = await verificarDniExistente(dniLimpio);
-          if (dniOcupado) {
-            return alert('🚫 DNI ya registrado\nEste DNI ya está vinculado a otra cuenta.');
-          }
+          if (dniOcupado) return alert('🚫 DNI ya registrado\nEste DNI ya está vinculado a otra cuenta.');
 
-          // Intento 2: crear cuenta nueva
           setCreandoCuenta(true);
           const credential = await createUserWithEmailAndPassword(auth, emailLimpio, password);
-          const exito = await registrarUsuario(
-            credential.user.uid,
-            emailLimpio,
-            emailLimpio.split('@')[0],
-            dniLimpio
-          );
+          const exito = await registrarUsuario(credential.user.uid, emailLimpio, emailLimpio.split('@')[0], dniLimpio);
 
-          if (exito) {
-            await actualizarDni(); // Fuerza la re-lectura para que el useEffect redirija
-          } else {
-            throw new Error('ERROR_BD');
-          }
+          if (exito) await actualizarDni();
+          else throw new Error('ERROR_BD');
         } else if (codigo === 'auth/wrong-password') {
           alert('🚫 Email ya en uso\nEste correo está registrado con un DNI diferente.');
         } else {
@@ -118,24 +85,13 @@ export default function LoginScreen() {
       }
     } catch (error: unknown) {
       const codigo = esFirebaseError(error) ? error.code : '';
-      const msg = error instanceof Error ? error.message : '';
-
-      if (codigo === 'auth/email-already-in-use') {
-        alert('🚫 Email ya en uso\nEste correo está registrado con otro DNI.');
-      } else if (msg === 'ERROR_BD') {
-        alert('❌ Error de registro\nNo se pudo completar el registro. Inténtalo de nuevo.');
-      } else if (codigo === 'auth/network-request-failed') {
-        alert('📡 Sin conexión\nRevisa tu internet e inténtalo de nuevo.');
-      } else {
-        alert(`❌ Error inesperado (${codigo || 'UNKNOWN'})\nInténtalo de nuevo o contacta con soporte.`);
-      }
+      if (codigo === 'auth/email-already-in-use') alert('🚫 Email ya en uso\nEste correo está registrado con otro DNI.');
+      else alert(`❌ Error de conexión\nInténtalo de nuevo.`);
     } finally {
       setCargando(false);
       setCreandoCuenta(false);
     }
   };
-
-  // ─── Vinculación de DNI tras login con Google ─────────────────────────────────
 
   const procesarDniGoogle = async () => {
     const dniLimpio = dni.trim().toUpperCase();
@@ -145,22 +101,11 @@ export default function LoginScreen() {
     setCargando(true);
     try {
       const dniOcupado = await verificarDniExistente(dniLimpio);
-      if (dniOcupado) {
-        return alert('🚫 DNI ya registrado\nEste DNI ya está vinculado a otra cuenta.');
-      }
+      if (dniOcupado) return alert('🚫 DNI ya registrado\nEste DNI ya está vinculado a otra cuenta.');
 
-      const exito = await registrarUsuario(
-        usuario.uid,
-        usuario.email || '',
-        usuario.displayName || 'Asistente',
-        dniLimpio
-      );
-
-      if (exito) {
-        await actualizarDni();
-      } else {
-        alert('❌ Error al guardar\nNo se pudo vincular el DNI. Inténtalo de nuevo.');
-      }
+      const exito = await registrarUsuario(usuario.uid, usuario.email || '', usuario.displayName || 'Asistente', dniLimpio);
+      if (exito) await actualizarDni();
+      else alert('❌ Error al guardar\nNo se pudo vincular el DNI. Inténtalo de nuevo.');
     } catch {
       alert('❌ Error de conexión\nRevisa tu internet e inténtalo de nuevo.');
     } finally {
@@ -168,33 +113,20 @@ export default function LoginScreen() {
     }
   };
 
-  // ─── Pantallas de carga ───────────────────────────────────────────────────────
-
-  if (cargandoAuth) {
+  if (cargandoAuth || creandoCuenta) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        {creandoCuenta && <Text style={styles.subtexto}>Creando tu cuenta...</Text>}
       </View>
     );
   }
-
-  if (creandoCuenta) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#000" />
-        <Text style={styles.subtexto}>Creando tu cuenta...</Text>
-      </View>
-    );
-  }
-
-  // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.logo}>🎌 MATSURI</Text>
 
-        {/* Estado A: Sin usuario → Pantalla de login */}
         {!usuario && (
           !usarEmail ? (
             <View style={styles.form}>
@@ -212,29 +144,11 @@ export default function LoginScreen() {
             </View>
           ) : (
             <View style={styles.form}>
-              <Text style={styles.subtexto}>Introduce tus datos para acceder a las votaciones</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Correo electrónico"
-                autoCapitalize="none"
-                keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Tu DNI  (12345678Z)"
-                autoCapitalize="characters"
-                maxLength={9}
-                value={dni}
-                onChangeText={setDni}
-              />
+              <Text style={styles.subtexto}>Introduce tus datos para acceder</Text>
+              <TextInput style={styles.input} placeholder="Correo electrónico" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+              <TextInput style={styles.input} placeholder="Tu DNI  (12345678Z)" autoCapitalize="characters" maxLength={9} value={dni} onChangeText={setDni} />
               <TouchableOpacity style={styles.btnPrimario} onPress={procesarEmailManual} disabled={cargando}>
-                {cargando ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.btnPrimarioTexto}>Acceder / Registrarse</Text>
-                )}
+                {cargando ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnPrimarioTexto}>Acceder / Registrarse</Text>}
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setUsarEmail(false)} style={styles.linkVolver}>
                 <Text style={styles.linkVolverTexto}>← Volver a Google</Text>
@@ -243,88 +157,40 @@ export default function LoginScreen() {
           )
         )}
 
-        {/* Estado B: Usuario logueado con Google pero sin DNI */}
         {usuario && !usuario.dniRegistrado && (
           <View style={styles.form}>
-            <Text style={styles.bienvenida}>
-              Hola, {usuario.displayName?.split(' ')[0] || 'votante'} 👋
-            </Text>
-            <Text style={styles.subtexto}>
-              Para garantizar un voto por persona, introduce tu DNI.
-            </Text>
-            <TextInput
-              style={styles.input}
-              placeholder="12345678Z"
-              autoCapitalize="characters"
-              maxLength={9}
-              value={dni}
-              onChangeText={setDni}
-            />
+            <Text style={styles.bienvenida}>Hola, {usuario.displayName?.split(' ')[0] || 'votante'} 👋</Text>
+            <Text style={styles.subtexto}>Para garantizar un voto por persona, introduce tu DNI.</Text>
+            <TextInput style={styles.input} placeholder="12345678Z" autoCapitalize="characters" maxLength={9} value={dni} onChangeText={setDni} />
             <TouchableOpacity style={styles.btnPrimario} onPress={procesarDniGoogle} disabled={cargando}>
-              {cargando ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Text style={styles.btnPrimarioTexto}>Finalizar Registro</Text>
-              )}
+              {cargando ? <ActivityIndicator color="#FFF" /> : <Text style={styles.btnPrimarioTexto}>Finalizar Registro</Text>}
             </TouchableOpacity>
           </View>
         )}
       </View>
-
       <Text style={styles.footer}>Sistema de Votación Certificado</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  container: { flex: 1, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 },
   center: { justifyContent: 'center', alignItems: 'center' },
-  card: { width: '100%', maxWidth: 400, alignItems: 'center' },
-  logo: { fontSize: 32, fontWeight: '900', color: '#000', marginBottom: 40, letterSpacing: 2 },
-  bienvenida: { fontSize: 22, fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: 8 },
-  subtexto: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 25 },
+  card: { width: '100%', maxWidth: 400, backgroundColor: theme.colors.surface, padding: 30, borderRadius: theme.borderRadius.lg, ...theme.shadows.soft, alignItems: 'center' },
+  logo: { fontSize: 34, fontWeight: '900', color: theme.colors.primary, marginBottom: 30, letterSpacing: 3 },
+  bienvenida: { fontSize: 24, fontWeight: '800', color: theme.colors.textDark, textAlign: 'center', marginBottom: 8 },
+  subtexto: { fontSize: 15, color: theme.colors.textMuted, textAlign: 'center', marginBottom: 25, lineHeight: 22 },
   form: { width: '100%' },
-  input: {
-    backgroundColor: '#F9F9F9',
-    padding: 16,
-    borderRadius: 4,
-    fontSize: 16,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    textAlign: 'center',
-  },
-  googleBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingVertical: 14,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
+  input: { backgroundColor: '#F8F9FA', padding: 16, borderRadius: theme.borderRadius.md, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#E9ECEF', textAlign: 'center', color: theme.colors.textDark },
+  googleBtn: { flexDirection: 'row', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: '#E9ECEF', paddingVertical: 14, borderRadius: theme.borderRadius.md, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   googleIcon: { width: 24, height: 24, marginRight: 12 },
-  googleText: { color: '#555', fontWeight: '500', fontSize: 16 },
-  separador: { textAlign: 'center', color: '#CCC', marginVertical: 20 },
-  btnSecundario: {
-    paddingVertical: 14,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#EEE',
-  },
-  btnSecundarioTexto: { color: '#333', fontWeight: '500', fontSize: 16 },
-  btnPrimario: { backgroundColor: '#000', padding: 16, borderRadius: 4, alignItems: 'center', marginTop: 5 },
-  btnPrimarioTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-  linkVolver: { marginTop: 25 },
-  linkVolverTexto: { textAlign: 'center', color: '#999', fontSize: 13 },
-  footer: { position: 'absolute', bottom: 30, color: '#BBB', fontSize: 12, letterSpacing: 1 },
+  googleText: { color: theme.colors.textDark, fontWeight: '600', fontSize: 16 },
+  separador: { textAlign: 'center', color: '#DEE2E6', marginVertical: 15, fontWeight: '600' },
+  btnSecundario: { paddingVertical: 14, borderRadius: theme.borderRadius.md, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8F9FA' },
+  btnSecundarioTexto: { color: theme.colors.textMuted, fontWeight: '600', fontSize: 16 },
+  btnPrimario: { backgroundColor: theme.colors.primary, padding: 16, borderRadius: theme.borderRadius.md, alignItems: 'center', marginTop: 5, shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  btnPrimarioTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 16, letterSpacing: 0.5 },
+  linkVolver: { marginTop: 25, padding: 10 },
+  linkVolverTexto: { textAlign: 'center', color: theme.colors.primary, fontSize: 14, fontWeight: '600' },
+  footer: { position: 'absolute', bottom: 30, color: '#ADB5BD', fontSize: 12, letterSpacing: 1, fontWeight: '500' },
 });

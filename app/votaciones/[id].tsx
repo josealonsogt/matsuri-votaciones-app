@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { obtenerVotacionesPorSeccion } from '../../services/adminService';
 import type { Votacion } from '../../types';
+// 💡 CORRECCIÓN 1: Ruta relativa (2 niveles arriba porque estamos en /app/votaciones)
+import { theme } from '../../styles/theme';
 
 // Textos amigables para cada método de votación
 const ETIQUETA_METODO: Record<string, string> = {
@@ -26,6 +28,36 @@ export default function VotacionesSeccionScreen() {
 
   const [votaciones, setVotaciones] = useState<Votacion[]>([]);
   const [cargando, setCargando] = useState(true);
+
+  // 💡 CORRECCIÓN 2: Estilos movidos al interior del componente
+  const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.colors.background },
+    center: { justifyContent: 'center', alignItems: 'center' },
+    header: { padding: 20, backgroundColor: 'transparent' },
+    btnVolver: { alignSelf: 'flex-start', paddingVertical: 10, paddingHorizontal: 16, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, ...theme.shadows.soft },
+    btnVolverTexto: { color: theme.colors.textDark, fontSize: 15, fontWeight: '700' },
+    cuerpo: { paddingHorizontal: 20, paddingBottom: 40 },
+    titulo: { fontSize: 28, fontWeight: '800', color: theme.colors.textDark, marginBottom: 20 },
+    vacio: { alignItems: 'center', marginTop: 40, padding: 30, backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed' },
+    vacioTexto: { fontSize: 16, color: theme.colors.textDark, fontWeight: '700', marginBottom: 8 },
+    vacioSubtexto: { fontSize: 14, color: theme.colors.textMuted, textAlign: 'center', lineHeight: 20 },
+    tarjeta: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: theme.colors.surface, padding: 24, borderRadius: theme.borderRadius.lg, marginBottom: 16,
+      ...theme.shadows.soft,
+    },
+    tarjetaCerrada: { opacity: 0.5, backgroundColor: theme.colors.background },
+    infoVotacion: { flex: 1 },
+    tituloVotacion: { fontSize: 19, fontWeight: '800', color: theme.colors.textDark, marginBottom: 6 },
+    descripcionVotacion: { fontSize: 14, color: theme.colors.textMuted, marginBottom: 14, lineHeight: 20 },
+    badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    badge: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: theme.borderRadius.pill, backgroundColor: theme.colors.textDark },
+    badgeGris: { backgroundColor: theme.colors.textMuted },
+    badgeAbierta: { backgroundColor: theme.colors.primary }, // Rojo Matsuri para "Abierta"
+    badgeCerrada: { backgroundColor: theme.colors.border },
+    badgeTexto: { color: '#FFF', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+    flecha: { fontSize: 22, color: theme.colors.border, marginLeft: 10, fontWeight: 'bold' },
+  });
 
   useEffect(() => {
     if (!seccionId) return;
@@ -105,65 +137,3 @@ export default function VotacionesSeccionScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  center: { justifyContent: 'center', alignItems: 'center' },
-  header: {
-    padding: 20,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
-  },
-  btnVolver: {
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#DEE2E6',
-  },
-  btnVolverTexto: { color: '#495057', fontSize: 14, fontWeight: '600' },
-  cuerpo: { padding: 20 },
-  titulo: { fontSize: 24, fontWeight: 'bold', color: '#212529', marginBottom: 20 },
-  vacio: {
-    alignItems: 'center',
-    marginTop: 60,
-    padding: 30,
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DEE2E6',
-    borderStyle: 'dashed',
-  },
-  vacioTexto: { fontSize: 16, color: '#495057', fontWeight: '600', marginBottom: 8 },
-  vacioSubtexto: { fontSize: 14, color: '#ADB5BD', textAlign: 'center' },
-  tarjeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#DEE2E6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tarjetaCerrada: { opacity: 0.6, backgroundColor: '#F8F9FA' },
-  infoVotacion: { flex: 1 },
-  tituloVotacion: { fontSize: 18, fontWeight: 'bold', color: '#212529', marginBottom: 5 },
-  descripcionVotacion: { fontSize: 14, color: '#6C757D', marginBottom: 10 },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  badge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12, backgroundColor: '#000' },
-  badgeGris: { backgroundColor: '#6C757D' },
-  badgeAbierta: { backgroundColor: '#2B8A3E' },
-  badgeCerrada: { backgroundColor: '#C92A2A' },
-  badgeTexto: { color: '#FFF', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  flecha: { fontSize: 22, color: '#ADB5BD', marginLeft: 10 },
-});
