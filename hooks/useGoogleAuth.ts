@@ -1,8 +1,9 @@
 // ============================================================================
 // 🔑 HOOK DE AUTENTICACIÓN GOOGLE — hooks/useGoogleAuth.ts
 //
-// Usamos signInWithPopup para todos. En Vercel, usar Redirect en móviles
-// causa bucles infinitos por el bloqueo de cookies de terceros de Safari/iOS.
+// Al estar alojados en Firebase Hosting nativo, usamos signInWithPopup SIEMPRE.
+// Es la experiencia más fluida: no recarga la página y funciona perfecto
+// tanto en PC como en navegadores móviles (Safari/Chrome).
 // ============================================================================
 
 import { FirebaseError } from 'firebase/app';
@@ -16,24 +17,25 @@ export const useGoogleAuth = () => {
   const loginConGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
+      // Hemos quitado el "select_account" forzado para que, si el usuario
+      // ya tiene su Google abierto en el móvil, entre con 1 solo clic.
       
-      // Usamos Popup SIEMPRE. En navegadores móviles (Safari/Chrome) abrirá
-      // una pestaña nueva segura y volverá sin romper las cookies de Vercel.
+      // Popup es instantáneo y no recarga tu página web
       await signInWithPopup(auth, provider);
       
     } catch (error: unknown) {
       const code = esFirebaseError(error) ? error.code : '';
       const msg = error instanceof Error ? error.message : '';
 
-      // Si se bloquea (ej. in-app browsers de Instagram o bloqueadores agresivos)
+      // Si el usuario abre el enlace desde dentro de Instagram/TikTok,
+      // estas apps a veces bloquean los popups por seguridad.
       if (code === 'auth/popup-blocked' || msg.includes('popup')) {
         alert(
-          '⚠️ Ventana emergente bloqueada\n\n' +
-          'Si estás viendo esto desde Instagram o una app similar, por favor, abre el enlace en Safari o Chrome para poder votar.'
+          '⚠️ Navegador bloqueado\n\n' +
+          'Si estás abriendo esto desde Instagram, pulsa los 3 puntitos arriba y elige "Abrir en el navegador (Safari/Chrome)".'
         );
       } else if (code !== 'auth/popup-closed-by-user') {
-        alert('❌ Error de conexión\nRevisa tu internet e inténtalo de nuevo.');
+        alert('❌ Error de conexión\nInténtalo de nuevo.');
       }
     }
   };
