@@ -10,6 +10,8 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -73,6 +75,10 @@ export default function LoginScreen() {
   const [cargando, setCargando] = useState(false);
   const [creandoCuenta, setCreandoCuenta] = useState(false);
 
+  // 👉 NUEVOS ESTADOS PARA PROTECCIÓN DE DATOS
+  const [aceptaPrivacidad, setAceptaPrivacidad] = useState(false);
+  const [modalPrivacidad, setModalPrivacidad] = useState(false);
+
   useEffect(() => {
     if (!cargandoAuth && usuario?.dniRegistrado) router.replace('/dashboard' as any);
   }, [usuario, cargandoAuth, router]);
@@ -85,10 +91,12 @@ export default function LoginScreen() {
   };
 
   const procesarEmailManual = async () => {
+    if (!aceptaPrivacidad) return alert('Debes aceptar la política de privacidad.');
     const dniLimpio = dni.trim().toUpperCase();
     const emailLimpio = email.trim().toLowerCase();
     if (!emailLimpio.includes('@')) return alert('Email inválido. Introduce un correo válido.');
     if (!validarCamposDni(dniLimpio)) return;
+    
     setCargando(true);
     const password = derivarPassword(dniLimpio);
     try {
@@ -116,9 +124,11 @@ export default function LoginScreen() {
   };
 
   const procesarDniGoogle = async () => {
+    if (!aceptaPrivacidad) return alert('Debes aceptar la política de privacidad.');
     const dniLimpio = dni.trim().toUpperCase();
     if (!validarCamposDni(dniLimpio)) return;
     if (!usuario) return;
+    
     setCargando(true);
     try {
       if (await verificarDniExistente(dniLimpio)) return alert('DNI ya registrado. Vinculado a otra cuenta.');
@@ -127,6 +137,25 @@ export default function LoginScreen() {
     } catch { alert('Error de conexión.'); }
     finally { setCargando(false); }
   };
+
+  // ─── Componente Checkbox Integrado ───
+  const CheckboxPrivacidad = () => (
+    <View style={s.checkboxContainer}>
+      <TouchableOpacity 
+        style={[s.checkbox, aceptaPrivacidad && s.checkboxMarcado]} 
+        onPress={() => setAceptaPrivacidad(!aceptaPrivacidad)}
+        activeOpacity={0.8}
+      >
+        {aceptaPrivacidad && <Feather name="check" size={14} color={C.white} />}
+      </TouchableOpacity>
+      <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', marginLeft: 10 }}>
+        <Text style={s.textoCheckbox}>He leído y acepto la </Text>
+        <TouchableOpacity onPress={() => setModalPrivacidad(true)}>
+          <Text style={s.linkPrivacidad}>Política de Privacidad</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   if (cargandoAuth || creandoCuenta) {
     return (
@@ -162,14 +191,22 @@ export default function LoginScreen() {
         {/* ── Estado A: sin sesión — pantalla inicial ── */}
         {!usuario && !usarEmail && (
           <View style={s.form}>
-            <TouchableOpacity style={s.googleBtn} onPress={loginConGoogle} activeOpacity={0.82}>
+            <CheckboxPrivacidad />
+
+            <TouchableOpacity 
+              style={[s.googleBtn, !aceptaPrivacidad && s.btnDeshabilitado]} 
+              onPress={aceptaPrivacidad ? loginConGoogle : () => alert('Acepta la política de privacidad primero.')} 
+              activeOpacity={aceptaPrivacidad ? 0.82 : 1}
+            >
               <View style={s.googleIconBadge}>
                 <MaterialCommunityIcons name="google" size={20} color="#DB4437" />
               </View>
               <Text style={s.googleText}>Iniciar sesión con Google</Text>
               <Feather name="arrow-right" size={17} color={C.slate} />
             </TouchableOpacity>
+            
             <Separador />
+            
             <TouchableOpacity style={s.btnSecundario} onPress={() => setUsarEmail(true)} activeOpacity={0.82}>
               <Feather name="mail" size={16} color={C.tealDark} />
               <Text style={s.btnSecundarioTexto}>Entrar con email y DNI</Text>
@@ -183,11 +220,20 @@ export default function LoginScreen() {
             <Text style={s.subtexto}>Introduce tus datos para acceder</Text>
             <TextInput style={s.input} placeholder="Correo electrónico" placeholderTextColor={C.muted} autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
             <TextInput style={s.input} placeholder="DNI  (12345678Z)" placeholderTextColor={C.muted} autoCapitalize="characters" maxLength={9} value={dni} onChangeText={setDni} />
-            <TouchableOpacity style={s.btnPrimario} onPress={procesarEmailManual} disabled={cargando} activeOpacity={0.85}>
+            
+            <CheckboxPrivacidad />
+
+            <TouchableOpacity 
+              style={[s.btnPrimario, !aceptaPrivacidad && s.btnDeshabilitado]} 
+              onPress={procesarEmailManual} 
+              disabled={cargando || !aceptaPrivacidad} 
+              activeOpacity={0.85}
+            >
               {cargando ? <ActivityIndicator color="#FFF" /> : (
                 <><Feather name="log-in" size={17} color="#FFF" /><Text style={s.btnPrimarioTexto}>Acceder / Registrarse</Text></>
               )}
             </TouchableOpacity>
+            
             <TouchableOpacity onPress={() => setUsarEmail(false)} style={s.linkVolver}>
               <Feather name="chevron-left" size={16} color={C.teal} />
               <Text style={s.linkVolverTexto}>Volver a Google</Text>
@@ -210,7 +256,15 @@ export default function LoginScreen() {
               Para garantizar un voto por persona, introduce tu DNI.
             </Text>
             <TextInput style={s.input} placeholder="12345678Z" placeholderTextColor={C.muted} autoCapitalize="characters" maxLength={9} value={dni} onChangeText={setDni} />
-            <TouchableOpacity style={s.btnPrimario} onPress={procesarDniGoogle} disabled={cargando} activeOpacity={0.85}>
+            
+            <CheckboxPrivacidad />
+
+            <TouchableOpacity 
+              style={[s.btnPrimario, !aceptaPrivacidad && s.btnDeshabilitado]} 
+              onPress={procesarDniGoogle} 
+              disabled={cargando || !aceptaPrivacidad} 
+              activeOpacity={0.85}
+            >
               {cargando ? <ActivityIndicator color="#FFF" /> : (
                 <><Feather name="check-circle" size={17} color="#FFF" /><Text style={s.btnPrimarioTexto}>Finalizar Registro</Text></>
               )}
@@ -228,6 +282,41 @@ export default function LoginScreen() {
         <Feather name="shield" size={12} color={C.muted} />
         <Text style={s.footer}>Sistema de Votación Certificado</Text>
       </View>
+
+      {/* 📜 MODAL DE POLÍTICA DE PRIVACIDAD */}
+      <Modal visible={modalPrivacidad} animationType="slide" transparent={true}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalContenido}>
+            <Text style={s.modalTitulo}>Protección de Datos</Text>
+            <ScrollView style={s.modalScroll} showsVerticalScrollIndicator={false}>
+              <Text style={s.legalIntro}>Reglamento Europeo de Protección de Datos 2016/679 y Ley Orgánica 3/2018 de Protección de Datos Personales y garantía de los derechos digitales:</Text>
+              
+              <Text style={s.legalBold}>Responsable:</Text>
+              <Text style={s.legalText}>ASOCIACIÓN CULTURAL TOLEDO MATSURI</Text>
+
+              <Text style={s.legalBold}>Finalidad:</Text>
+              <Text style={s.legalText}>Dar respuesta a las consultas o cualquier tipo de petición que sea realizada por el usuario a través de cualquiera de las formas de contacto que se ponen a su disposición en la página web del responsable. Remitir boletines informativos, novedades, ofertas y promociones online. Gestionar la inscripción en las actividades llevadas a cabo por la organización (charlas, actividades, talleres, voluntariado, etc.).</Text>
+
+              <Text style={s.legalBold}>Conservación de datos:</Text>
+              <Text style={s.legalText}>Se conservarán durante no más tiempo del necesario para mantener el fin del tratamiento o mientras existan prescripciones legales que dictaminen su custodia y cuando ya no sea necesario para ello, se suprimirán con medidas de seguridad adecuadas.</Text>
+
+              <Text style={s.legalBold}>Comunicación de datos:</Text>
+              <Text style={s.legalText}>No se comunicarán los datos a terceros, salvo obligación legal.</Text>
+
+              <Text style={s.legalBold}>Derechos:</Text>
+              <Text style={s.legalText}>Acceso, rectificación, supresión, limitación, portabilidad, oposición y presentar una reclamación ante la AEPD.</Text>
+
+              <Text style={s.legalBold}>Información adicional:</Text>
+              <Text style={s.legalText}>Puede obtener toda la Información adicional y detallada que precise sobre el tratamiento y protección de sus datos personales solicitándola a la organización.</Text>
+            </ScrollView>
+            
+            <TouchableOpacity style={s.btnCerrarModal} onPress={() => setModalPrivacidad(false)}>
+              <Text style={s.btnCerrarModalTexto}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -283,7 +372,7 @@ const s = StyleSheet.create({
   googleIconBadge: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1F0' },
   googleText: { color: C.ink, fontWeight: '700', fontSize: 15 },
 
-  // Btn secundario (teal suave)
+  // Btn secundario
   btnSecundario: {
     paddingVertical: 14, borderRadius: 14,
     justifyContent: 'center', alignItems: 'center',
@@ -293,7 +382,7 @@ const s = StyleSheet.create({
   },
   btnSecundarioTexto: { color: C.tealDark, fontWeight: '800', fontSize: 14 },
 
-  // Btn primario (teal sólido)
+  // Btn primario
   btnPrimario: {
     backgroundColor: C.teal,
     paddingVertical: 16, borderRadius: 14,
@@ -303,6 +392,8 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 5,
   },
   btnPrimarioTexto: { color: '#FFF', fontWeight: '900', fontSize: 16, letterSpacing: 0.4 },
+  
+  btnDeshabilitado: { opacity: 0.5 },
 
   // Links
   linkVolver: { marginTop: 18, padding: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4 },
@@ -323,4 +414,21 @@ const s = StyleSheet.create({
   // Footer
   footerWrap: { position: 'absolute', bottom: 28, flexDirection: 'row', alignItems: 'center', gap: 6 },
   footer: { color: C.muted, fontSize: 12, letterSpacing: 0.8, fontWeight: '600' },
+
+  // 👉 ESTILOS NUEVOS DE PRIVACIDAD
+  checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 4 },
+  checkbox: { width: 22, height: 22, borderWidth: 1.5, borderColor: C.border, borderRadius: 6, justifyContent: 'center', alignItems: 'center', backgroundColor: C.inputBg },
+  checkboxMarcado: { borderColor: C.teal, backgroundColor: C.teal },
+  textoCheckbox: { fontSize: 13, color: C.muted, fontWeight: '500' },
+  linkPrivacidad: { fontSize: 13, color: C.tealDark, fontWeight: '700', textDecorationLine: 'underline' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(13, 31, 45, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContenido: { backgroundColor: C.white, borderRadius: 24, padding: 28, width: '100%', maxWidth: 500, maxHeight: '80%', shadowColor: C.shadow, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
+  modalTitulo: { fontSize: 20, fontWeight: '900', color: C.tealDark, marginBottom: 12, textAlign: 'center' },
+  modalScroll: { marginBottom: 24 },
+  legalIntro: { fontSize: 13, color: C.muted, marginBottom: 16, fontStyle: 'italic', lineHeight: 20 },
+  legalBold: { fontSize: 14, fontWeight: '800', color: C.slate, marginTop: 12, marginBottom: 4 },
+  legalText: { fontSize: 14, color: C.slate, lineHeight: 22, textAlign: 'justify' },
+  btnCerrarModal: { backgroundColor: C.teal, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
+  btnCerrarModalTexto: { color: C.white, fontWeight: '800', fontSize: 15, letterSpacing: 0.3 },
 });
