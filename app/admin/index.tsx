@@ -248,7 +248,12 @@ export default function AdminSeccionesScreen() {
         {/* Acción Primaria Destacada */}
         <TouchableOpacity
           style={[globalStyles.btnPrimary, { flex: 1, backgroundColor: '#E7F5FF' }]}
-          onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
+          onPress={() =>
+            router.push({
+              pathname: '/admin/votaciones/[seccionId]' as any,
+              params: { seccionId: sec.id, seccionNombre: sec.nombre },
+            } as any)
+          }
         >
           <View style={[globalStyles.rowCenter, { gap: 6 }]}>
             <MaterialCommunityIcons name="ballot-outline" size={16} color="#1971C2" />

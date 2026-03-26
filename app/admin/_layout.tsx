@@ -67,6 +67,19 @@ export default function AdminLayout() {
         name="resultados"
         options={{ title: 'Resultados', tabBarIcon: () => null, headerTitle: '📊 Resultados' }}
       />
+      <Tabs.Screen
+        name="votaciones/[seccionId]"
+        options={({ route }) => {
+          const params = route.params as { seccionNombre?: string } | undefined;
+          const nombre = params?.seccionNombre;
+          return {
+            href: null,
+            title: 'Votaciones',
+            tabBarIcon: () => null,
+            headerTitle: nombre ? `🗳️ ${nombre}` : '🗳️ Votaciones',
+          };
+        }}
+      />
     </Tabs>
   );
 }

@@ -7,13 +7,13 @@ import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { getSectionIconOption, isSectionIconName } from '../constants/sectionIcons';
 import { useAuth } from '../contexts/AuthContext';
@@ -234,7 +234,17 @@ export default function DashboardScreen() {
           </View>
         ) : (
           secciones.map((sec, i) => (
-            <SeccionCard key={sec.id} seccion={sec} index={i} onPress={() => router.push(`/votaciones/${sec.id}` as any)} />
+            <SeccionCard
+              key={sec.id}
+              seccion={sec}
+              index={i}
+              onPress={() =>
+                router.push({
+                  pathname: '/votaciones/[id]' as any,
+                  params: { id: sec.id, seccionNombre: sec.nombre },
+                } as any)
+              }
+            />
           ))
         )}
       </View>

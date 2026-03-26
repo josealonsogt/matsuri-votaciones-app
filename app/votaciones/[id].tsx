@@ -6,13 +6,13 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { obtenerVotacionesPorSeccion } from '../../services/adminService';
 import type { Votacion } from '../../types';
@@ -55,6 +55,10 @@ export default function VotacionesSeccionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const seccionId = (params.id || params.seccionId) as string;
+  const seccionNombreParam = params.seccionNombre;
+  const seccionNombre = Array.isArray(seccionNombreParam)
+    ? seccionNombreParam[0]
+    : seccionNombreParam;
 
   const [votaciones, setVotaciones] = useState<Votacion[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -121,7 +125,7 @@ export default function VotacionesSeccionScreen() {
               <View style={styles.titleIcon}>
                 <MaterialCommunityIcons name="ballot-outline" size={16} color={C.tealDark} />
               </View>
-              <Text style={styles.titulo}>Votaciones Disponibles</Text>
+              <Text style={styles.titulo}>{seccionNombre || 'Votaciones Disponibles'}</Text>
             </View>
             <TouchableOpacity onPress={onRefresh} disabled={refrescando} style={styles.btnRefrescar}>
               {refrescando ? (
