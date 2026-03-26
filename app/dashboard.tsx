@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { getSectionIconOption, isSectionIconName } from '../constants/sectionIcons';
 import { useAuth } from '../contexts/AuthContext';
 import { obtenerSeccionesActivas } from '../services/adminService';
 import { auth } from '../services/firebaseConfig';
@@ -47,6 +48,17 @@ const FALLBACK: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['nam
   { icon: 'lightning-bolt-outline', bg: C.magentaSoft, color: C.magenta   },
 ];
 const resolverIcono = (s: Seccion, i: number) => {
+  if (s.icono && isSectionIconName(s.icono)) {
+    const icono = getSectionIconOption(s.icono);
+    if (icono) {
+      return {
+        icon: s.icono as React.ComponentProps<typeof MaterialCommunityIcons>['name'],
+        bg: icono.bg,
+        color: icono.color,
+      };
+    }
+  }
+
   const t = `${s.nombre} ${s.descripcion || ''}`.toLowerCase();
   if (t.includes('comida') || t.includes('gastron') || t.includes('cocina'))
     return { icon: 'food-variant' as const, bg: '#FFF3E8', color: '#E8590C' };

@@ -9,6 +9,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -148,10 +149,7 @@ export default function LoginScreen() {
       <View style={s.card}>
         {/* ── Brand ── */}
         <View style={s.brandWrap}>
-          {/* Logo badge teal */}
-          <View style={s.logoBadge}>
-            <MaterialCommunityIcons name="gate" size={28} color={C.teal} />
-          </View>
+          <Image source={require('../assets/logo_toledo_matsuri_2026.png')} style={s.logoImage} />
           <Text style={s.logo}>MATSURI</Text>
           {/* Pill de edición */}
           <View style={s.edicionPill}>
@@ -254,13 +252,7 @@ const s = StyleSheet.create({
 
   // Brand
   brandWrap: { alignItems: 'center', marginBottom: 28 },
-  logoBadge: {
-    width: 60, height: 60, borderRadius: 18,
-    backgroundColor: C.tealSoft,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 14,
-    shadowColor: C.teal,
-    shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.25, shadowRadius: 14, elevation: 5,
-  },
+  logoImage: { width: 210, height: 100, marginBottom: 8, resizeMode: 'contain' },
   logo: { fontSize: 30, fontWeight: '900', color: C.tealDark, letterSpacing: 4 },
   edicionPill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,

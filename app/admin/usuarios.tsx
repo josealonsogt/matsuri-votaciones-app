@@ -2,6 +2,7 @@
 // 👥 ADMIN — USUARIOS — app/admin/usuarios.tsx
 // ============================================================================
 
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { obtenerTodosLosUsuarios } from '../../services/adminService';
@@ -59,26 +60,38 @@ export default function UsuariosScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
-        <Text style={styles.titulo}>👥 Usuarios registrados</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <MaterialCommunityIcons name="account-group-outline" size={22} color={theme.colors.textDark} />
+          <Text style={styles.titulo}>Usuarios registrados</Text>
+        </View>
         <Text style={styles.subtitulo}>Total: {usuarios.length}</Text>
       </View>
       <ScrollView style={styles.cuerpo}>
         {usuarios.map((u, i) => (
           <View key={String(u.id ?? i)} style={styles.tarjeta}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarLetra}>
-                {u.nombre ? String(u.nombre).charAt(0).toUpperCase() : '?'}
-              </Text>
+              {u.nombre ? (
+                <Text style={styles.avatarLetra}>{String(u.nombre).charAt(0).toUpperCase()}</Text>
+              ) : (
+                <Feather name="user" size={16} color={theme.colors.textMuted} />
+              )}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.nombre}>
-                {String(u.nombre || 'Sin nombre')} {u.rol === 'admin' ? '👑' : ''}
+                {String(u.nombre || 'Sin nombre')}
               </Text>
               <Text style={styles.email}>{String(u.email || '')}</Text>
               <Text style={styles.dni}>DNI: {String(u.dni || '—')}</Text>
             </View>
             <View style={styles.rolBadge}>
-              <Text style={styles.rolTexto}>{u.rol === 'admin' ? 'ADMIN' : 'USUARIO'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                {u.rol === 'admin' ? (
+                  <MaterialCommunityIcons name="shield-crown-outline" size={12} color={theme.colors.textDark} />
+                ) : (
+                  <Feather name="shield" size={11} color={theme.colors.textDark} />
+                )}
+                <Text style={styles.rolTexto}>{u.rol === 'admin' ? 'ADMIN' : 'USUARIO'}</Text>
+              </View>
             </View>
           </View>
         ))}

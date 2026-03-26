@@ -116,11 +116,20 @@ export default function VotacionesSeccionScreen() {
         </View>
 
         <View style={styles.cuerpo}>
-          <View style={styles.titleRow}>
-            <View style={styles.titleIcon}>
-              <MaterialCommunityIcons name="ballot-outline" size={16} color={C.tealDark} />
+          <View style={styles.toolbar}>
+            <View style={styles.titleRow}>
+              <View style={styles.titleIcon}>
+                <MaterialCommunityIcons name="ballot-outline" size={16} color={C.tealDark} />
+              </View>
+              <Text style={styles.titulo}>Votaciones Disponibles</Text>
             </View>
-            <Text style={styles.titulo}>Votaciones Disponibles</Text>
+            <TouchableOpacity onPress={onRefresh} disabled={refrescando} style={styles.btnRefrescar}>
+              {refrescando ? (
+                <ActivityIndicator size="small" color={C.teal} />
+              ) : (
+                <MaterialCommunityIcons name="refresh" size={20} color={C.teal} />
+              )}
+            </TouchableOpacity>
           </View>
 
           {votacionesVisibles.length === 0 ? (
@@ -242,7 +251,14 @@ const styles = StyleSheet.create({
   btnVolverTexto: { color: C.ink, fontSize: 14, fontWeight: '700' },
 
   cuerpo: { paddingHorizontal: 16, paddingBottom: 24 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 },
+  toolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 10,
+  },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   titleIcon: {
     width: 34,
     height: 34,
@@ -252,6 +268,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   titulo: { fontSize: 26, fontWeight: '900', color: C.ink },
+  btnRefrescar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: C.tealSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.teal,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
+  },
 
   vacio: {
     marginTop: 18,

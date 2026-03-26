@@ -9,32 +9,33 @@
 //   - Generar QR dinámico para cada votación
 // ============================================================================
 
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Animated,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useToast } from '../../../contexts/ToastContext';
 import {
-  actualizarEstadoVotacion,
-  actualizarParticipante,
-  actualizarVisibilidadVotacion,
-  actualizarVotacion,
-  agregarParticipante,
-  crearVotacion,
-  eliminarParticipante,
-  eliminarVotacion,
-  obtenerParticipantes,
-  obtenerVotacionesPorSeccion,
+    actualizarEstadoVotacion,
+    actualizarParticipante,
+    actualizarVisibilidadVotacion,
+    actualizarVotacion,
+    agregarParticipante,
+    crearVotacion,
+    eliminarParticipante,
+    eliminarVotacion,
+    obtenerParticipantes,
+    obtenerVotacionesPorSeccion,
 } from '../../../services/adminService';
 import type { MetodoVotacion, Participante, Votacion } from '../../../types';
 import { confirmarAccion } from '../../../utils/alert';
@@ -219,10 +220,15 @@ export default function AdminVotacionesSeccionScreen() {
     if (!nombreParticipante.trim()) return showToast('El nombre no puede estar vacío.', 'error');
     setGuardandoParticipante(true);
 
-    const datos = {
+    const datos: {
+      nombre: string;
+      descripcion?: string;
+    } = {
       nombre: nombreParticipante.trim(),
-      descripcion: descripcionParticipante.trim() || undefined,
     };
+
+    const descripcionLimpia = descripcionParticipante.trim();
+    if (descripcionLimpia) datos.descripcion = descripcionLimpia;
 
     const exito = participanteEditando
       ? await actualizarParticipante(participanteEditando, datos)
@@ -272,10 +278,16 @@ export default function AdminVotacionesSeccionScreen() {
     <View style={styles.container}>
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.btnVolver} onPress={() => router.back()}>
-          <Text style={styles.btnVolverTexto}>← Atrás</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Feather name="arrow-left" size={14} color="#495057" />
+            <Text style={styles.btnVolverTexto}>Atrás</Text>
+          </View>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnNuevo} onPress={() => abrirModalVotacion()}>
-          <Text style={styles.btnNuevoTexto}>+ Nueva Votación</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Feather name="plus" size={14} color="#FFF" />
+            <Text style={styles.btnNuevoTexto}>Nueva votación</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -305,13 +317,21 @@ export default function AdminVotacionesSeccionScreen() {
                         <Text style={styles.badgeTexto}>{vot.metodoVotacion}</Text>
                       </View>
                       <View style={[styles.badge, vot.estado === 'abierta' ? styles.badgeAbierta : styles.badgeCerrada]}>
-                        <Text style={styles.badgeTexto}>
-                          {vot.estado === 'abierta' ? '🟢 Abierta' : '🔴 Cerrada'}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <MaterialCommunityIcons
+                            name={vot.estado === 'abierta' ? 'check-circle-outline' : 'close-circle-outline'}
+                            size={11}
+                            color="#FFF"
+                          />
+                          <Text style={styles.badgeTexto}>{vot.estado === 'abierta' ? 'Abierta' : 'Cerrada'}</Text>
+                        </View>
                       </View>
                       {vot.visible === false && (
                         <View style={[styles.badge, styles.badgeGris]}>
-                          <Text style={styles.badgeTexto}>🙈 Oculta</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Feather name="eye-off" size={10} color="#FFF" />
+                            <Text style={styles.badgeTexto}>Oculta</Text>
+                          </View>
                         </View>
                       )}
                     </View>
@@ -328,20 +348,28 @@ export default function AdminVotacionesSeccionScreen() {
                     {/* Botonera de acciones */}
                     <View style={styles.botonera}>
                       <TouchableOpacity style={styles.btnAccionPeq} onPress={() => abrirModalVotacion(vot)}>
-                        <Text style={styles.btnAccionPeqTexto}>✏️ Editar</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Feather name="edit-2" size={12} color="#495057" />
+                          <Text style={styles.btnAccionPeqTexto}>Editar</Text>
+                        </View>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.btnAccionPeq} onPress={() => handleToggleEstado(vot)}>
-                        <Text style={styles.btnAccionPeqTexto}>
-                          {vot.estado === 'abierta' ? '🔒 Cerrar' : '🔓 Reabrir'}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Feather name={vot.estado === 'abierta' ? 'lock' : 'unlock'} size={12} color="#495057" />
+                          <Text style={styles.btnAccionPeqTexto}>{vot.estado === 'abierta' ? 'Cerrar' : 'Reabrir'}</Text>
+                        </View>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.btnAccionPeq} onPress={() => handleToggleVisibilidad(vot)}>
-                        <Text style={styles.btnAccionPeqTexto}>
-                          {vot.visible !== false ? '🙈 Ocultar' : '👁️ Mostrar'}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Feather name={vot.visible !== false ? 'eye-off' : 'eye'} size={12} color="#495057" />
+                          <Text style={styles.btnAccionPeqTexto}>{vot.visible !== false ? 'Ocultar' : 'Mostrar'}</Text>
+                        </View>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.btnAccionPeq} onPress={() => abrirQR(vot.id)}>
-                        <Text style={styles.btnAccionPeqTexto}>🔲 QR</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <MaterialCommunityIcons name="qrcode" size={12} color="#495057" />
+                          <Text style={styles.btnAccionPeqTexto}>QR</Text>
+                        </View>
                       </TouchableOpacity>
                     </View>
 
@@ -366,7 +394,7 @@ export default function AdminVotacionesSeccionScreen() {
                                 setDescripcionParticipante(p.descripcion || '');
                               }}
                             >
-                              <Text>✏️</Text>
+                              <Feather name="edit-2" size={13} color="#495057" />
                             </TouchableOpacity>
                             <TouchableOpacity
                               style={styles.btnEliminarP}
@@ -384,7 +412,7 @@ export default function AdminVotacionesSeccionScreen() {
                     {/* Formulario para añadir/editar participante */}
                     <View style={[styles.formP, participanteEditando && styles.formPEditando]}>
                       <Text style={styles.labelFormP}>
-                        {participanteEditando ? '✏️ Editando opción' : '✨ Añadir nueva opción'}
+                        {participanteEditando ? 'Editando opción' : 'Añadir nueva opción'}
                       </Text>
                       <TextInput
                         style={styles.input}
@@ -428,7 +456,10 @@ export default function AdminVotacionesSeccionScreen() {
                       style={styles.btnEliminarVot}
                       onPress={() => handleEliminarVotacion(vot.id, vot.titulo)}
                     >
-                      <Text style={styles.btnEliminarVotTexto}>🗑 Eliminar esta votación entera</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Feather name="trash-2" size={13} color="#C92A2A" />
+                        <Text style={styles.btnEliminarVotTexto}>Eliminar esta votación entera</Text>
+                      </View>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -444,7 +475,7 @@ export default function AdminVotacionesSeccionScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContenido}>
             <Text style={styles.modalTitulo}>
-              {votacionEditando ? '✏️ Editar Votación' : '✨ Nueva Votación'}
+              {votacionEditando ? 'Editar votación' : 'Nueva votación'}
             </Text>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.label}>Título *</Text>

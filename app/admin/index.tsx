@@ -8,34 +8,35 @@
 //   - Navegar a la gestión de votaciones de cada sección
 // ============================================================================
 
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import type { ComponentProps } from 'react';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import { SECTION_ICON_OPTIONS, isSectionIconName } from '../../constants/sectionIcons';
 import { useToast } from '../../contexts/ToastContext';
 import {
-  actualizarSeccion,
-  crearSeccion,
-  eliminarSeccion,
-  obtenerEstadoEvento,
-  obtenerSecciones,
-  togglePausaEvento,
+    actualizarSeccion,
+    crearSeccion,
+    eliminarSeccion,
+    obtenerEstadoEvento,
+    obtenerSecciones,
+    togglePausaEvento,
 } from '../../services/adminService';
 import { globalStyles } from '../../styles/globalStyles';
 import type { Seccion } from '../../types';
 import { confirmarAccion } from '../../utils/alert';
-
-const ICONOS_SUGERIDOS = ['🎮', '🎵', '🎭', '🎲', '🎨', '🚗', '👗', '📚', '🎪', '🏆'];
 
 export default function AdminSeccionesScreen() {
   const router = useRouter();
@@ -100,12 +101,12 @@ export default function AdminSeccionesScreen() {
       width: '100%', maxWidth: 500, maxHeight: '90%',
     },
     modalTitulo: { fontSize: 22, fontWeight: 'bold', color: '#212529', marginBottom: 20 },
-    iconosSugeridos: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+    iconosSugeridos: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
     btnIcono: {
       width: 50, height: 50, borderRadius: 8, backgroundColor: '#F8F9FA',
       borderWidth: 1, borderColor: '#DEE2E6', justifyContent: 'center', alignItems: 'center',
     },
-    btnIconoActivo: { backgroundColor: '#000', borderColor: '#000' },
+    btnIconoActivo: { borderColor: '#212529', borderWidth: 2 },
     modalAcciones: { flexDirection: 'row', gap: 12, marginTop: 10 },
   });
 
@@ -164,12 +165,20 @@ export default function AdminSeccionesScreen() {
     if (!nombre.trim()) return showToast('El nombre es obligatorio.', 'error');
     setGuardando(true);
 
-    const datos = {
+    const datos: {
+      nombre: string;
+      orden: number;
+      icono?: string;
+      descripcion?: string;
+    } = {
       nombre: nombre.trim(),
-      icono: icono.trim() || undefined,
-      descripcion: descripcion.trim() || undefined,
       orden: parseInt(orden) || 0,
     };
+
+    const iconoLimpio = icono.trim();
+    const descripcionLimpia = descripcion.trim();
+    if (iconoLimpio) datos.icono = iconoLimpio;
+    if (descripcionLimpia) datos.descripcion = descripcionLimpia;
 
     const exito = seccionEditando
       ? await actualizarSeccion(seccionEditando, datos)
@@ -214,7 +223,13 @@ export default function AdminSeccionesScreen() {
     <View style={globalStyles.card}>
       <View style={styles.tarjetaHeader}>
         <View style={styles.iconoContainer}>
-          <Text style={styles.iconoGrande}>{sec.icono || '📁'}</Text>
+          {sec.icono && isSectionIconName(sec.icono) ? (
+            <MaterialCommunityIcons name={sec.icono as ComponentProps<typeof MaterialCommunityIcons>['name']} size={28} color="#495057" />
+          ) : sec.icono ? (
+            <Text style={styles.iconoGrande}>{sec.icono}</Text>
+          ) : (
+            <MaterialCommunityIcons name="folder-outline" size={28} color="#495057" />
+          )}
         </View>
         <View style={styles.tarjetaInfo}>
           <Text style={[globalStyles.title, { fontSize: 18, marginBottom: 4 }]}>{sec.nombre}</Text>
@@ -235,20 +250,26 @@ export default function AdminSeccionesScreen() {
           style={[globalStyles.btnPrimary, { flex: 1, backgroundColor: '#E7F5FF' }]}
           onPress={() => router.push(`/admin/votaciones/${sec.id}` as any)}
         >
-          <Text style={[globalStyles.btnPrimaryText, { color: '#1971C2' }]}>Ver Votaciones</Text>
+          <View style={[globalStyles.rowCenter, { gap: 6 }]}>
+            <MaterialCommunityIcons name="ballot-outline" size={16} color="#1971C2" />
+            <Text style={[globalStyles.btnPrimaryText, { color: '#1971C2' }]}>Ver votaciones</Text>
+          </View>
         </TouchableOpacity>
         
         <View style={[globalStyles.rowCenter, { gap: 8, marginLeft: 12 }]}>
           {/* Acción Secundaria */}
           <TouchableOpacity style={[globalStyles.btnSecondary, { paddingHorizontal: 16 }]} onPress={() => abrirEditar(sec)}>
-            <Text style={globalStyles.btnSecondaryText}>✏️ Editar</Text>
+            <View style={[globalStyles.rowCenter, { gap: 6 }]}>
+              <Feather name="edit-2" size={14} color="#1C1E21" />
+              <Text style={globalStyles.btnSecondaryText}>Editar</Text>
+            </View>
           </TouchableOpacity>
           {/* Acción Destructiva más discreta */}
           <TouchableOpacity
             style={[globalStyles.btnDanger, { paddingHorizontal: 16 }]}
             onPress={() => handleEliminar(sec.id, sec.nombre)}
           >
-            <Text style={globalStyles.btnDangerText}>🗑️</Text>
+            <Feather name="trash-2" size={14} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -261,7 +282,10 @@ export default function AdminSeccionesScreen() {
         {/* Botón de volver al dashboard */}
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.btnVolver} onPress={() => router.push('/dashboard' as any)}>
-            <Text style={styles.btnVolverTexto}>← Volver al Dashboard</Text>
+            <View style={globalStyles.rowCenter}>
+              <Feather name="arrow-left" size={15} color="#007AFF" />
+              <Text style={[styles.btnVolverTexto, { marginLeft: 6 }]}>Volver al Dashboard</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -269,7 +293,7 @@ export default function AdminSeccionesScreen() {
         <View style={[styles.banner, eventoPausado ? styles.bannerPausado : styles.bannerActivo]}>
           <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={[styles.bannerTitulo, eventoPausado ? { color: '#C92A2A' } : { color: '#2B8A3E' }]}>
-              {eventoPausado ? '🛑 EVENTO PAUSADO' : '🟢 EVENTO ABIERTO'}
+              {eventoPausado ? 'EVENTO PAUSADO' : 'EVENTO ABIERTO'}
             </Text>
             <Text style={styles.bannerSubtitulo}>
               {eventoPausado
@@ -281,9 +305,10 @@ export default function AdminSeccionesScreen() {
             style={[styles.btnToggle, eventoPausado ? styles.btnToggleAbrir : styles.btnTogglePausar]}
             onPress={handleTogglePausa}
           >
-            <Text style={styles.btnToggleTexto}>
-              {eventoPausado ? '🔓 Abrir' : '🔒 Pausar'}
-            </Text>
+            <View style={[globalStyles.rowCenter, { gap: 6 }]}>
+              <Feather name={eventoPausado ? 'unlock' : 'lock'} size={13} color="#FFF" />
+              <Text style={styles.btnToggleTexto}>{eventoPausado ? 'Abrir' : 'Pausar'}</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -296,14 +321,17 @@ export default function AdminSeccionesScreen() {
             <View style={styles.headerLista}>
               <Text style={globalStyles.title}>Categorías / Secciones</Text>
               <TouchableOpacity style={globalStyles.btnPrimary} onPress={abrirCrear}>
-                <Text style={globalStyles.btnPrimaryText}>+ Nueva</Text>
+                <View style={[globalStyles.rowCenter, { gap: 6 }]}>
+                  <Feather name="plus" size={14} color="#FFF" />
+                  <Text style={globalStyles.btnPrimaryText}>Nueva</Text>
+                </View>
               </TouchableOpacity>
             </View>
           }
           ListEmptyComponent={
             !cargando ? (
               <View style={globalStyles.emptyContainer}>
-                <Text style={globalStyles.emptyIcon}>📭</Text>
+                <MaterialCommunityIcons name="inbox-arrow-down-outline" size={46} color="#ADB5BD" />
                 <Text style={globalStyles.emptyTitle}>No hay secciones creadas</Text>
                 <Text style={globalStyles.emptyText}>Crea la primera categoría para empezar a organizar tu evento.</Text>
                 <TouchableOpacity style={[globalStyles.btnPrimary, { marginTop: 20 }]} onPress={abrirCrear}>
@@ -319,7 +347,7 @@ export default function AdminSeccionesScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContenido}>
               <Text style={styles.modalTitulo}>
-                {seccionEditando ? '✏️ Editar Sección' : '✨ Nueva Sección'}
+                {seccionEditando ? 'Editar sección' : 'Nueva sección'}
               </Text>
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={globalStyles.inputLabel}>Nombre *</Text>
@@ -330,25 +358,23 @@ export default function AdminSeccionesScreen() {
                   onChangeText={setNombre}
                 />
 
-                <Text style={globalStyles.inputLabel}>Icono (emoji)</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.iconosSugeridos}>
-                  {ICONOS_SUGERIDOS.map((e) => (
+                <Text style={globalStyles.inputLabel}>Icono (librería)</Text>
+                <View style={styles.iconosSugeridos}>
+                  {SECTION_ICON_OPTIONS.map((i) => (
                     <TouchableOpacity
-                      key={e}
-                      style={[styles.btnIcono, icono === e && styles.btnIconoActivo]}
-                      onPress={() => setIcono(e)}
+                      key={i.name}
+                      style={[
+                        styles.btnIcono,
+                        { backgroundColor: i.bg },
+                        icono === i.name && styles.btnIconoActivo,
+                      ]}
+                      onPress={() => setIcono(i.name)}
                     >
-                      <Text style={{ fontSize: 24 }}>{e}</Text>
+                      <MaterialCommunityIcons name={i.name as ComponentProps<typeof MaterialCommunityIcons>['name']} size={24} color={i.color} />
                     </TouchableOpacity>
                   ))}
-                </ScrollView>
-                <TextInput
-                  style={globalStyles.input}
-                  placeholder="O escribe tu propio emoji"
-                  value={icono}
-                  onChangeText={setIcono}
-                  maxLength={2}
-                />
+                </View>
+                <Text style={[globalStyles.subtitle, { marginBottom: 12 }]}>Si no eliges uno, se usará icono por defecto.</Text>
 
                 <Text style={globalStyles.inputLabel}>Descripción (opcional)</Text>
                 <TextInput

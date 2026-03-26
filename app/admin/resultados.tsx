@@ -6,6 +6,7 @@
 // actuales, sin necesidad de que esté cerrada.
 // ============================================================================
 
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { obtenerParticipantes, obtenerTodasLasVotaciones } from '../../services/adminService';
@@ -82,7 +83,12 @@ export default function ResultadosScreen() {
     setCargandoRanking(false);
   };
 
-  const medalla = (i: number) => ['🥇', '🥈', '🥉'][i] ?? `${i + 1}º`;
+  const medalla = (i: number) => {
+    if (i === 0) return <MaterialCommunityIcons name="trophy" size={18} color="#F59F00" />;
+    if (i === 1) return <MaterialCommunityIcons name="medal" size={18} color="#868E96" />;
+    if (i === 2) return <MaterialCommunityIcons name="medal-outline" size={18} color="#C17830" />;
+    return <Text style={{ fontSize: 13, fontWeight: '700', color: theme.colors.textMuted }}>{i + 1}º</Text>;
+  };
 
   if (cargando) {
     return (
@@ -95,10 +101,13 @@ export default function ResultadosScreen() {
   return (
     <View style={globalStyles.safeArea}>
       <View style={styles.topBar}>
-        <Text style={[globalStyles.title, { marginBottom: 0 }]}>📊 Ranking y Resultados</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <MaterialCommunityIcons name="chart-box-outline" size={22} color={theme.colors.textDark} />
+          <Text style={[globalStyles.title, { marginBottom: 0 }]}>Ranking y Resultados</Text>
+        </View>
       </View>
       <ScrollView style={globalStyles.container}>
-        <Text style={[globalStyles.subtitle, { marginVertical: 16 }]}>
+        <Text style={[globalStyles.subtitle, { marginVertical: 16 }]}> 
           Pulsa una votación para ver la clasificación en tiempo real.
         </Text>
         {votaciones.map((vot) => {
@@ -108,13 +117,18 @@ export default function ResultadosScreen() {
               <TouchableOpacity style={styles.cabecera} onPress={() => toggleExpandir(vot)}>
                 <View style={{ flex: 1 }}>
                   <Text style={[globalStyles.title, { fontSize: 18, marginBottom: 4 }]}>{vot.titulo}</Text>
-                  <Text style={styles.estadoVot}>
-                    {vot.estado === 'abierta' ? '🟢 En curso' : '🔴 Finalizada'}
-                    {' • '}{vot.metodoVotacion}
-                    {vot.visible === false ? ' • 🙈 Oculta' : ''}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <MaterialCommunityIcons
+                      name={vot.estado === 'abierta' ? 'check-circle-outline' : 'close-circle-outline'}
+                      size={13}
+                      color={vot.estado === 'abierta' ? theme.colors.success : theme.colors.danger}
+                    />
+                    <Text style={styles.estadoVot}>{vot.estado === 'abierta' ? 'En curso' : 'Finalizada'}</Text>
+                    <Text style={styles.estadoVot}>• {vot.metodoVotacion}</Text>
+                    {vot.visible === false && <Text style={styles.estadoVot}>• Oculta</Text>}
+                  </View>
                 </View>
-                <Text style={styles.chevron}>{abierta ? '▲' : '▼'}</Text>
+                <Feather name={abierta ? 'chevron-up' : 'chevron-down'} size={16} color={theme.colors.textMuted} />
               </TouchableOpacity>
 
               {abierta && (
@@ -141,7 +155,7 @@ export default function ResultadosScreen() {
 
                       return (
                         <View key={p.id} style={styles.fila}>
-                          <Text style={styles.medalla}>{medalla(i)}</Text>
+                          <View style={[styles.medalla, { justifyContent: 'center', alignItems: 'center' }]}>{medalla(i)}</View>
                           <View style={{ flex: 1 }}>
                             <View style={styles.filaTextos}>
                               <Text style={styles.nombreP} numberOfLines={1}>{p.nombre}</Text>
