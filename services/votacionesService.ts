@@ -81,6 +81,7 @@ interface RegistrarVotoParams {
   votacionId: string;
   participantesIds: string[];
   puntuaciones?: Record<string, number>;
+  respuestaTexto?: string;
 }
 
 /**
@@ -118,7 +119,7 @@ export const registrarVoto = async (params: RegistrarVotoParams): Promise<boolea
             participantesLeidos.push({ ref, data: snap.data() as Record<string, number>, nota });
           }
         }
-      } else {
+      } else if (params.participantesIds && params.participantesIds.length > 0) {
         // Método único o múltiple: actualizamos todos los seleccionados
         for (const id of params.participantesIds) {
           const ref = doc(db, 'participantes', id);
@@ -137,6 +138,7 @@ export const registrarVoto = async (params: RegistrarVotoParams): Promise<boolea
         votacionId: params.votacionId,
         participantesIds: params.participantesIds,
         puntuaciones: params.puntuaciones || null,
+        respuestaTexto: params.respuestaTexto || null,
         timestamp: serverTimestamp(),
       });
 

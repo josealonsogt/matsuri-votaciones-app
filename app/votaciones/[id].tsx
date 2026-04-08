@@ -6,13 +6,13 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { obtenerVotacionesPorSeccion } from '../../services/adminService';
 import type { Votacion } from '../../types';
@@ -40,6 +40,7 @@ const ETIQUETA_METODO: Record<string, string> = {
   unica: 'Voto Único',
   multiple: 'Voto Múltiple',
   puntuacion: 'Puntuación 1-10',
+  texto_libre: 'Respuesta Libre',
 };
 
 const META_METODO: Record<
@@ -49,6 +50,7 @@ const META_METODO: Record<
   unica: { icon: 'radiobox-marked', bg: C.tealSoft, color: C.tealDark },
   multiple: { icon: 'checkbox-multiple-marked-outline', bg: C.purpleSoft, color: C.purple },
   puntuacion: { icon: 'star-outline', bg: C.orangeSoft, color: C.orange },
+  texto_libre: { icon: 'text-box-edit-outline', bg: C.magentaSoft, color: C.magenta },
 };
 
 export default function VotacionesSeccionScreen() {

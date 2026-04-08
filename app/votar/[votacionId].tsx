@@ -7,22 +7,23 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { obtenerEstadoEvento } from '../../services/adminService';
 import { db } from '../../services/firebaseConfig';
 import {
-  obtenerVotacion,
-  registrarVoto,
-  verificarVotoExistente,
+    obtenerVotacion,
+    registrarVoto,
+    verificarVotoExistente,
 } from '../../services/votacionesService';
 import type { Participante, Votacion } from '../../types';
 
@@ -190,6 +191,7 @@ export default function VotarScreen() {
   const [seleccionUnica, setSeleccionUnica] = useState<string | null>(null);
   const [seleccionMultiple, setSeleccionMultiple] = useState<Set<string>>(new Set());
   const [puntuaciones, setPuntuaciones] = useState<Record<string, number>>({});
+  const [respuestaTexto, setRespuestaTexto] = useState('');
 
   useEffect(() => {
     if (cargandoAuth) return;
@@ -243,6 +245,7 @@ export default function VotarScreen() {
     if (votacion.metodoVotacion === 'unica') return seleccionUnica !== null;
     if (votacion.metodoVotacion === 'multiple') return seleccionMultiple.size > 0;
     if (votacion.metodoVotacion === 'puntuacion') return Object.keys(puntuaciones).length > 0;
+    if (votacion.metodoVotacion === 'texto_libre') return respuestaTexto.trim().length > 0;
     return false;
   };
 
@@ -251,10 +254,14 @@ export default function VotarScreen() {
     setEnviando(true);
     let ids: string[] = [];
     let pts: Record<string, number> | undefined;
+    let rTexto: string | undefined;
+
     if (votacion.metodoVotacion === 'unica') ids = [seleccionUnica!];
     else if (votacion.metodoVotacion === 'multiple') ids = Array.from(seleccionMultiple);
-    else { ids = Object.keys(puntuaciones); pts = puntuaciones; }
-    const ok = await registrarVoto({ usuarioId: usuario.uid, votacionId: votacion.id, participantesIds: ids, puntuaciones: pts });
+    else if (votacion.metodoVotacion === 'puntuacion') { ids = Object.keys(puntuaciones); pts = puntuaciones; }
+    else if (votacion.metodoVotacion === 'texto_libre') { rTexto = respuestaTexto.trim(); }
+
+    const ok = await registrarVoto({ usuarioId: usuario.uid, votacionId: votacion.id, participantesIds: ids, puntuaciones: pts, respuestaTexto: rTexto });
     if (ok) setYaVoto(true);
     else { const msg = 'No se pudo registrar el voto. Es posible que ya hayas votado.'; Platform.OS === 'web' ? alert(msg) : Alert.alert('Error', msg); }
     setEnviando(false);
@@ -289,7 +296,7 @@ export default function VotarScreen() {
     const ranking = [...participantes];
     let totalVotos = 0;
     if (votacion.metodoVotacion === 'puntuacion') { ranking.sort((a, b) => (b.promedioEstrellas || 0) - (a.promedioEstrellas || 0)); totalVotos = 10; }
-    else { totalVotos = ranking.reduce((sum, p) => sum + p.votos, 0); ranking.sort((a, b) => b.votos - a.votos); }
+    else if (votacion.metodoVotacion !== 'texto_libre') { totalVotos = ranking.reduce((sum, p) => sum + p.votos, 0); ranking.sort((a, b) => b.votos - a.votos); }
 
     const etiqueta = eventoPausado ? 'PAUSADA' : votacion.estado === 'cerrada' ? 'FINALIZADA' : 'YA VOTASTE';
     const badgeBg = eventoPausado ? '#FCC419' : votacion.estado === 'cerrada' ? C.muted : C.teal;
@@ -318,47 +325,61 @@ export default function VotarScreen() {
 
         <ScrollView style={s.cuerpo} contentContainerStyle={{ paddingBottom: 100 }}>
           <Text style={s.titulo}>{votacion.titulo}</Text>
-          <View style={s.subtituloRow}>
-            <MaterialCommunityIcons name="chart-bar" size={14} color={C.teal} />
-            <Text style={s.descripcion}>Resultados en directo</Text>
-          </View>
+          {votacion.metodoVotacion === 'texto_libre' ? (
+            <View style={{ marginTop: 24, padding: 24, backgroundColor: C.white, borderRadius: 20, alignItems: 'center' }}>
+               <MaterialCommunityIcons name="check-circle" size={48} color={C.teal} />
+               <Text style={{ marginTop: 16, fontSize: 18, fontWeight: 'bold', color: C.ink, textAlign: 'center' }}>
+                 {votacion.estado === 'cerrada' ? 'Esta encuesta está cerrada.' : '¡Gracias por tu respuesta!'}
+               </Text>
+               <Text style={{ marginTop: 8, fontSize: 14, color: C.muted, textAlign: 'center' }}>
+                 Tus comentarios han sido registrados correctamente y serán leídos por los organizadores.
+               </Text>
+            </View>
+          ) : (
+            <>
+              <View style={s.subtituloRow}>
+                <MaterialCommunityIcons name="chart-bar" size={14} color={C.teal} />
+                <Text style={s.descripcion}>Resultados en directo</Text>
+              </View>
 
-          <View style={s.zonaResultados}>
-            {ranking.map((p, i) => {
-              let pct = 0, txtMain = '', txtSub = '';
-              if (votacion.metodoVotacion === 'puntuacion') {
-                pct = ((p.promedioEstrellas || 0) / 10) * 100;
-                txtMain = `${p.promedioEstrellas || 0}/10`;
-                txtSub = `${p.totalPuntuaciones || 0} valoraciones`;
-              } else {
-                pct = totalVotos === 0 ? 0 : (p.votos / totalVotos) * 100;
-                txtMain = `${p.votos} votos`;
-                txtSub = `${pct.toFixed(1)}%`;
-              }
-              const esGanador = i === 0 && (p.votos > 0 || (p.promedioEstrellas || 0) > 0);
-              const barColor = barColors[i % 3];
+              <View style={s.zonaResultados}>
+                {ranking.map((p, i) => {
+                  let pct = 0, txtMain = '', txtSub = '';
+                  if (votacion.metodoVotacion === 'puntuacion') {
+                    pct = ((p.promedioEstrellas || 0) / 10) * 100;
+                    txtMain = `${p.promedioEstrellas || 0}/10`;
+                    txtSub = `${p.totalPuntuaciones || 0} valoraciones`;
+                  } else {
+                    pct = totalVotos === 0 ? 0 : (p.votos / totalVotos) * 100;
+                    txtMain = `${p.votos} votos`;
+                    txtSub = `${pct.toFixed(1)}%`;
+                  }
+                  const esGanador = i === 0 && (p.votos > 0 || (p.promedioEstrellas || 0) > 0);
+                  const barColor = barColors[i % 3];
 
-              return (
-                <View key={p.id} style={s.filaRanking}>
-                  <MedallaIcon index={i} />
-                  <View style={s.infoRanking}>
-                    <View style={s.rankingRow}>
-                      <Text style={[s.nombreRanking, esGanador && { color: C.tealDark }]} numberOfLines={1}>
-                        {p.nombre}
-                      </Text>
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={[s.ptsPrincipal, esGanador && { color: C.tealDark }]}>{txtMain}</Text>
-                        <Text style={s.ptsSub}>{txtSub}</Text>
+                  return (
+                    <View key={p.id} style={s.filaRanking}>
+                      <MedallaIcon index={i} />
+                      <View style={s.infoRanking}>
+                        <View style={s.rankingRow}>
+                          <Text style={[s.nombreRanking, esGanador && { color: C.tealDark }]} numberOfLines={1}>
+                            {p.nombre}
+                          </Text>
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={[s.ptsPrincipal, esGanador && { color: C.tealDark }]}>{txtMain}</Text>
+                            <Text style={s.ptsSub}>{txtSub}</Text>
+                          </View>
+                        </View>
+                        <View style={s.barraFondo}>
+                          <View style={[s.barraRelleno, { width: `${pct}%` as any, backgroundColor: barColor }]} />
+                        </View>
                       </View>
                     </View>
-                    <View style={s.barraFondo}>
-                      <View style={[s.barraRelleno, { width: `${pct}%` as any, backgroundColor: barColor }]} />
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
         </ScrollView>
       </View>
     );
@@ -369,6 +390,7 @@ export default function VotarScreen() {
     unica:      { icon: 'radiobox-marked',                    txt: 'Elige UNA opción.' },
     multiple:   { icon: 'checkbox-multiple-marked-outline',   txt: `Elige hasta ${votacion.maxOpciones ?? 3} opciones.` },
     puntuacion: { icon: 'star-outline',                       txt: 'Puntúa del 1 al 10 a los participantes.' },
+    texto_libre:{ icon: 'text-box-edit-outline',              txt: 'Escribe tu respuesta libremente.' },
   };
   const instr = instrMap[votacion.metodoVotacion] ?? { icon: 'help-circle-outline', txt: '' };
 
@@ -396,17 +418,33 @@ export default function VotarScreen() {
         </View>
 
         <View style={s.lista}>
-          {participantes.map((p) => {
-            if (votacion.metodoVotacion === 'unica')
-              return <TarjetaUnica key={p.id} participante={p} seleccionado={seleccionUnica === p.id} onPress={() => setSeleccionUnica(p.id)} />;
-            if (votacion.metodoVotacion === 'multiple') {
-              const lim = seleccionMultiple.size >= (votacion.maxOpciones ?? 3) && !seleccionMultiple.has(p.id);
-              return <TarjetaMultiple key={p.id} participante={p} seleccionado={seleccionMultiple.has(p.id)} deshabilitado={lim} onPress={() => toggleMultiple(p.id)} />;
-            }
-            if (votacion.metodoVotacion === 'puntuacion')
-              return <TarjetaPuntuacion key={p.id} participante={p} puntuacion={puntuaciones[p.id] ?? 0} onCambio={(n) => setPuntuaciones((prev) => ({ ...prev, [p.id]: n }))} />;
-            return null;
-          })}
+          {votacion.metodoVotacion === 'texto_libre' ? (
+            <View style={tS.tarjeta}>
+              <View style={[tS.accentBar, { backgroundColor: C.magenta }]} />
+              <View style={{ flex: 1 }}>
+                <TextInput
+                  style={{ minHeight: 120, textAlignVertical: 'top', fontSize: 16, color: C.ink, marginTop: 4, width: '100%' }}
+                  placeholder="Escribe tu respuesta aquí..."
+                  placeholderTextColor={C.muted}
+                  multiline
+                  value={respuestaTexto}
+                  onChangeText={setRespuestaTexto}
+                />
+              </View>
+            </View>
+          ) : (
+            participantes.map((p) => {
+              if (votacion.metodoVotacion === 'unica')
+                return <TarjetaUnica key={p.id} participante={p} seleccionado={seleccionUnica === p.id} onPress={() => setSeleccionUnica(p.id)} />;
+              if (votacion.metodoVotacion === 'multiple') {
+                const lim = seleccionMultiple.size >= (votacion.maxOpciones ?? 3) && !seleccionMultiple.has(p.id);
+                return <TarjetaMultiple key={p.id} participante={p} seleccionado={seleccionMultiple.has(p.id)} deshabilitado={lim} onPress={() => toggleMultiple(p.id)} />;
+              }
+              if (votacion.metodoVotacion === 'puntuacion')
+                return <TarjetaPuntuacion key={p.id} participante={p} puntuacion={puntuaciones[p.id] ?? 0} onCambio={(n) => setPuntuaciones((prev) => ({ ...prev, [p.id]: n }))} />;
+              return null;
+            })
+          )}
         </View>
       </ScrollView>
 

@@ -13,29 +13,29 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Animated,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useToast } from '../../../contexts/ToastContext';
 import {
-    actualizarEstadoVotacion,
-    actualizarParticipante,
-    actualizarVisibilidadVotacion,
-    actualizarVotacion,
-    agregarParticipante,
-    crearVotacion,
-    eliminarParticipante,
-    eliminarVotacion,
-    obtenerParticipantes,
-    obtenerVotacionesPorSeccion,
+  actualizarEstadoVotacion,
+  actualizarParticipante,
+  actualizarVisibilidadVotacion,
+  actualizarVotacion,
+  agregarParticipante,
+  crearVotacion,
+  eliminarParticipante,
+  eliminarVotacion,
+  obtenerParticipantes,
+  obtenerVotacionesPorSeccion,
 } from '../../../services/adminService';
 import type { MetodoVotacion, Participante, Votacion } from '../../../types';
 import { confirmarAccion } from '../../../utils/alert';
@@ -374,7 +374,13 @@ export default function AdminVotacionesSeccionScreen() {
                     </View>
 
                     {/* Lista de participantes */}
-                    {cargandoParticipantes[vot.id] ? (
+                    {vot.metodoVotacion === 'texto_libre' ? (
+                      <View style={{ padding: 16, backgroundColor: '#F8F9FA', borderRadius: 8, marginBottom: 16 }}>
+                        <Text style={{ color: '#495057', fontSize: 13, textAlign: 'center' }}>
+                          Esta votación es de respuesta libre, los usuarios escribirán su propia respuesta. ¡No se necesitan opciones!
+                        </Text>
+                      </View>
+                    ) : cargandoParticipantes[vot.id] ? (
                       <ActivityIndicator color="#000" style={{ marginVertical: 12 }} />
                     ) : (
                       (participantesPorVotacion[vot.id] ?? []).map((p) => (
@@ -410,46 +416,48 @@ export default function AdminVotacionesSeccionScreen() {
                     <View style={styles.separador} />
 
                     {/* Formulario para añadir/editar participante */}
-                    <View style={[styles.formP, participanteEditando && styles.formPEditando]}>
-                      <Text style={styles.labelFormP}>
-                        {participanteEditando ? 'Editando opción' : 'Añadir nueva opción'}
-                      </Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Nombre *"
-                        value={nombreParticipante}
-                        onChangeText={setNombreParticipante}
-                      />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Descripción (opcional)"
-                        value={descripcionParticipante}
-                        onChangeText={setDescripcionParticipante}
-                      />
-                      <View style={{ flexDirection: 'row', gap: 10 }}>
-                        {participanteEditando && (
-                          <TouchableOpacity
-                            style={[styles.btnAnadir, { backgroundColor: '#6C757D', flex: 1 }]}
-                            onPress={limpiarFormParticipante}
-                          >
-                            <Text style={styles.btnAnadirTexto}>Cancelar</Text>
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                          style={[styles.btnAnadir, { flex: 2 }]}
-                          onPress={() => handleGuardarParticipante(vot.id)}
-                          disabled={guardandoParticipante}
-                        >
-                          {guardandoParticipante ? (
-                            <ActivityIndicator color="#FFF" />
-                          ) : (
-                            <Text style={styles.btnAnadirTexto}>
-                              {participanteEditando ? 'Guardar Cambios' : '+ Añadir'}
-                            </Text>
+                    {vot.metodoVotacion !== 'texto_libre' && (
+                      <View style={[styles.formP, participanteEditando && styles.formPEditando]}>
+                        <Text style={styles.labelFormP}>
+                          {participanteEditando ? 'Editando opción' : 'Añadir nueva opción'}
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Nombre *"
+                          value={nombreParticipante}
+                          onChangeText={setNombreParticipante}
+                        />
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Descripción (opcional)"
+                          value={descripcionParticipante}
+                          onChangeText={setDescripcionParticipante}
+                        />
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                          {participanteEditando && (
+                            <TouchableOpacity
+                              style={[styles.btnAnadir, { backgroundColor: '#6C757D', flex: 1 }]}
+                              onPress={limpiarFormParticipante}
+                            >
+                              <Text style={styles.btnAnadirTexto}>Cancelar</Text>
+                            </TouchableOpacity>
                           )}
-                        </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.btnAnadir, { flex: 2 }]}
+                            onPress={() => handleGuardarParticipante(vot.id)}
+                            disabled={guardandoParticipante}
+                          >
+                            {guardandoParticipante ? (
+                              <ActivityIndicator color="#FFF" />
+                            ) : (
+                              <Text style={styles.btnAnadirTexto}>
+                                {participanteEditando ? 'Guardar Cambios' : '+ Añadir'}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
+                    )}
 
                     {/* Botón peligroso al final */}
                     <TouchableOpacity
@@ -493,7 +501,7 @@ export default function AdminVotacionesSeccionScreen() {
 
               <Text style={styles.label}>Método de votación *</Text>
               <View style={styles.metodosWrap}>
-                {(['unica', 'multiple', 'puntuacion'] as MetodoVotacion[]).map((m) => (
+                {(['unica', 'multiple', 'puntuacion', 'texto_libre'] as MetodoVotacion[]).map((m) => (
                   <TouchableOpacity
                     key={m}
                     style={[styles.btnMetodo, metodo === m && styles.btnMetodoActivo]}

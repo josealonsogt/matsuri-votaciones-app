@@ -9,7 +9,7 @@
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { obtenerParticipantes, obtenerTodasLasVotaciones } from '../../services/adminService';
+import { obtenerParticipantes, obtenerRespuestasTexto, obtenerTodasLasVotaciones } from '../../services/adminService';
 
 import { globalStyles } from '../../styles/globalStyles';
 import { theme } from '../../styles/theme';
@@ -20,6 +20,7 @@ export default function ResultadosScreen() {
   const [cargando, setCargando] = useState(true);
   const [expandida, setExpandida] = useState<string | null>(null);
   const [ranking, setRanking] = useState<Participante[]>([]);
+  const [respuestasTexto, setRespuestasTexto] = useState<string[]>([]);
   const [totalVotos, setTotalVotos] = useState(0);
   const [cargandoRanking, setCargandoRanking] = useState(false);
 
@@ -68,18 +69,26 @@ export default function ResultadosScreen() {
     setExpandida(votacion.id);
     setCargandoRanking(true);
 
-    const participantes = await obtenerParticipantes(votacion.id);
-
-    if (votacion.metodoVotacion === 'puntuacion') {
-      participantes.sort((a, b) => (b.promedioEstrellas || 0) - (a.promedioEstrellas || 0));
-      setTotalVotos(10); // Referencia para la barra (escala 0–10)
+    if (votacion.metodoVotacion === 'texto_libre') {
+      const respuestas = await obtenerRespuestasTexto(votacion.id);
+      setRespuestasTexto(respuestas);
+      setTotalVotos(respuestas.length);
+      setRanking([]);
     } else {
-      const total = participantes.reduce((s, p) => s + p.votos, 0);
-      setTotalVotos(total);
-      participantes.sort((a, b) => b.votos - a.votos);
-    }
+      const participantes = await obtenerParticipantes(votacion.id);
 
-    setRanking(participantes);
+      if (votacion.metodoVotacion === 'puntuacion') {
+        participantes.sort((a, b) => (b.promedioEstrellas || 0) - (a.promedioEstrellas || 0));
+        setTotalVotos(10); // Referencia para la barra (escala 0–10)
+      } else {
+        const total = participantes.reduce((s, p) => s + p.votos, 0);
+        setTotalVotos(total);
+        participantes.sort((a, b) => b.votos - a.votos);
+      }
+
+      setRanking(participantes);
+      setRespuestasTexto([]);
+    }
     setCargandoRanking(false);
   };
 
@@ -135,6 +144,16 @@ export default function ResultadosScreen() {
                 <View style={styles.zonaResultados}>
                   {cargandoRanking ? (
                     <ActivityIndicator color="#000" style={{ margin: 20 }} />
+                  ) : vot.metodoVotacion === 'texto_libre' ? (
+                    respuestasTexto.length === 0 ? (
+                      <Text style={globalStyles.emptyText}>Aún no hay respuestas.</Text>
+                    ) : (
+                      respuestasTexto.map((q, idx) => (
+                        <View key={idx} style={{ padding: 12, backgroundColor: '#F8F9FA', borderRadius: 8, marginBottom: 8 }}>
+                          <Text style={{ color: theme.colors.textDark }}>{q}</Text>
+                        </View>
+                      ))
+                    )
                   ) : ranking.length === 0 ? (
                     <Text style={globalStyles.emptyText}>Aún no hay participantes.</Text>
                   ) : (

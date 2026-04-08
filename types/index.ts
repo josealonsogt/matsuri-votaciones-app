@@ -28,8 +28,8 @@ export interface EstadisticasUsuario {
 
 // ─── Estructura principal ────────────────────────────────────────────────────
 
-// Los tres métodos de votación soportados
-export type MetodoVotacion = 'unica' | 'multiple' | 'puntuacion';
+// Los cuatro métodos de votación soportados
+export type MetodoVotacion = 'unica' | 'multiple' | 'puntuacion' | 'texto_libre';
 
 export interface Seccion {
   id: string;
@@ -74,5 +74,6 @@ export interface Voto {
   votacionId: string;
   participantesIds: string[];
   puntuaciones?: Record<string, number>; // { "id_participante": 8 }
+  respuestaTexto?: string;
   timestamp: Date;
 }

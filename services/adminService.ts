@@ -13,18 +13,18 @@
 // ============================================================================
 
 import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
+    addDoc,
+    collection,
+    deleteDoc,
+    doc,
+    getDoc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+    updateDoc,
+    where,
 } from 'firebase/firestore';
 import type { MetodoVotacion, Participante, Seccion, Votacion } from '../types';
 import { db } from './firebaseConfig';
@@ -346,6 +346,23 @@ export const obtenerParticipantes = async (votacionId: string): Promise<Particip
     const q = query(collection(db, 'participantes'), where('votacionId', '==', votacionId));
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Participante[];
+  } catch {
+    return [];
+  }
+};
+
+export const obtenerRespuestasTexto = async (votacionId: string): Promise<string[]> => {
+  try {
+    const q = query(collection(db, 'votos'), where('votacionId', '==', votacionId));
+    const snap = await getDocs(q);
+    const respuestas: string[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data.respuestaTexto && data.respuestaTexto.trim().length > 0) {
+        respuestas.push(data.respuestaTexto.trim());
+      }
+    });
+    return respuestas;
   } catch {
     return [];
   }
