@@ -16,13 +16,13 @@ Este documento contiene la información necesaria para configurar, levantar y co
 
 Asegúrate de tener instalado en tu máquina:
 - [Node.js](https://nodejs.org/) (recomendado v18 o superior).
-- Ganas de trabajar 😉
+  
 
-## 🚀 Instalación y Configuración Local
+##  Instalación y Configuración Local
 
 1. **Clonar el repositorio y entrar a la carpeta:**
    ```bash
-   git clone <URL_DEL_REPOSITORIO>
+   git clone https://github.com/josealonsogt/matsuri-votaciones-app.git
    cd votaciones-matsuri
    ```
 
@@ -60,7 +60,7 @@ El proyecto sigue una estructura organizada por dominios basada en Expo Router:
 - `/services` - Lógica de conexión externa (Base de datos de Firebase: `votacionesService`, `authService`).
 - `/types/index.ts` - **Diccionario maestro de tipos.** *💡 Por favor asómate aquí primero, define toda la forma de los datos (Secciones, Votaciones, Participantes y Votos).*
 
-## 🔑 Accesos e Infraestructura
+## Accesos e Infraestructura
 
 Para poder modificar y desplegar la app en su totalidad, necesitarás pedir que te den acceso a las siguientes plataformas con tu correo de la empresa:
 
@@ -68,7 +68,7 @@ Para poder modificar y desplegar la app en su totalidad, necesitarás pedir que 
 2. **Vercel / Hosting:** Para ver o modificar métricas y ramas del despliegue en web.
 3. **Cuenta de Expo (EAS) / Tiendas (Si aplica):** Cuentas necesarias para publicar futuras actualizaciones en App Store / Play Store.
 
-## 📝 Notas de traspaso
+##  Notas de traspaso
 - El sistema de navegación soporta distintos tipos de votación (`unica`, `multiple`, `puntuacion`, `texto_libre`).
 - Lee la lógica dentro de `/services/votacionesService.ts` si necesitas alterar el cómo se cuentan o manipulan los votos.
 ---
