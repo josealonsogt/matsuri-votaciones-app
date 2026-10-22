@@ -1,4 +1,4 @@
-# 🗳️ Matsuri — Plataforma de Votaciones
+# Matsuri — Plataforma de Votaciones
 
 ![Estado](https://img.shields.io/badge/Estado-Portfolio-purple?style=for-the-badge)
 ![React Native](https://img.shields.io/badge/React_Native-Expo-blue?style=for-the-badge)
@@ -7,11 +7,11 @@
 
 Aplicación desarrollada durante mi periodo de prácticas en **Briefing Jane** para gestionar las votaciones de **Matsuri**. Reúne categorías, diferentes métodos de voto, identificación de participantes, resultados en tiempo real y administración del evento.
 
-**[🚀 Abrir aplicación web](https://votaciones-matsuri.web.app/)** · **[📄 Ver documentación](docs/votaciones-matsuri.pdf)** · **[⬇️ Obtener PDF](https://github.com/josealonsogt/matsuri-votaciones-app/raw/refs/heads/main/docs/votaciones-matsuri.pdf)**
+**[Abrir aplicación web](https://votaciones-matsuri.web.app/)** · **[📄 Ver documentación](docs/votaciones-matsuri.pdf)** · **[⬇️ Obtener PDF](https://github.com/josealonsogt/matsuri-votaciones-app/raw/refs/heads/main/docs/votaciones-matsuri.pdf)**
 
 El acceso depende de la apertura del evento y de la configuración de Firebase. El panel administrativo requiere una cuenta autorizada; sus pantallas también pueden consultarse en el manual público.
 
-## 📸 Capturas
+##  Capturas
 
 ### Acceso de usuarios
 
@@ -25,9 +25,9 @@ El acceso depende de la apertura del evento y de la configuración de Firebase. 
 
 ![Creación de votaciones con distintos métodos](docs/images/nueva-votacion.png)
 
-## ✨ Funcionalidades
+##  Funcionalidades
 
-### 👤 Participantes
+###  Participantes
 
 - Acceso web mediante Google o correo electrónico y DNI.
 - Validación del DNI y vinculación con una cuenta de Firebase Authentication.
@@ -45,7 +45,7 @@ El acceso depende de la apertura del evento y de la configuración de Firebase. 
 | Puntuación | Puntuar las opciones en una escala numérica |
 | Texto libre | Introducir una respuesta escrita |
 
-### 👑 Administración
+###  Administración
 
 - Crear, editar y eliminar categorías y votaciones.
 - Gestionar las opciones de cada votación.
@@ -54,7 +54,7 @@ El acceso depende de la apertura del evento y de la configuración de Firebase. 
 - Consultar usuarios y resultados globales.
 - Abrir o cerrar el acceso general al evento.
 
-## 🔐 Cómo funciona el acceso administrativo
+##  Cómo funciona el acceso administrativo
 
 Las cuentas autorizadas pueden ser cuentas de Google/Gmail. **Añadir las variables de entorno no concede permisos de administrador**: esas variables conectan la app con Firebase.
 
